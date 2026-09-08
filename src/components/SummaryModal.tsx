@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,10 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
-import { Book, Chapter } from '../types';
-import { AI_SUMMARIES } from '../data/books';
+import { Book, Chapter, SummaryServiceError } from '../types';
+import { fetchSummary } from '../services/summaryService';
 import { Flourish } from './Flourish';
 import { colors, fonts, testIds } from '../theme';
 
@@ -20,11 +21,54 @@ interface SummaryModalProps {
   onMarkHeard?: () => void;
 }
 
-export function SummaryModal({ visible, book, chapter, onClose, onMarkHeard }: SummaryModalProps) {
-  const key = `${book.id}-${chapter.id}`;
-  const text =
-    AI_SUMMARIES[key] ||
-    "The stage is set, the players assembled, and the story turns upon its hinge. What was hidden comes to light; what was light dissolves into shadow. Every word spoken carries the weight of consequence, and the audience leans forward in the dark, breath held, knowing that nothing shall ever again be quite as it was before this scene was played.";
+type LoadState = 'idle' | 'loading' | 'error' | 'success';
+
+export function SummaryModal({
+  visible,
+  book,
+  chapter,
+  onClose,
+  onMarkHeard,
+}: SummaryModalProps) {
+  const [loadState, setLoadState] = useState<LoadState>('idle');
+  const [summary, setSummary] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [retryable, setRetryable] = useState(false);
+
+  const loadSummary = useCallback(
+    async (skipCache = false) => {
+      setLoadState('loading');
+      setErrorMessage('');
+      setRetryable(false);
+
+      try {
+        const text = await fetchSummary(book, chapter, { skipCache });
+        setSummary(text);
+        setLoadState('success');
+      } catch (error) {
+        const message =
+          error instanceof SummaryServiceError
+            ? error.message
+            : 'Could not reach the summary service.';
+        const canRetry =
+          error instanceof SummaryServiceError ? error.retryable : true;
+        setErrorMessage(message);
+        setRetryable(canRetry);
+        setLoadState('error');
+      }
+    },
+    [book, chapter],
+  );
+
+  useEffect(() => {
+    if (visible) {
+      void loadSummary();
+    } else {
+      setLoadState('idle');
+      setSummary('');
+      setErrorMessage('');
+    }
+  }, [visible, loadSummary]);
 
   return (
     <Modal
@@ -45,7 +89,35 @@ export function SummaryModal({ visible, book, chapter, onClose, onMarkHeard }: S
 
             <View style={styles.divider} />
             <Text style={styles.quill}>✍</Text>
-            <Text style={styles.summaryText}>&ldquo;{text}&rdquo;</Text>
+
+            {loadState === 'loading' && (
+              <View style={styles.centerBlock}>
+                <ActivityIndicator color={colors.burgundy} size="small" />
+                <Text style={styles.loadingText}>Summoning the scribe…</Text>
+              </View>
+            )}
+
+            {loadState === 'error' && (
+              <View style={styles.centerBlock}>
+                <Text style={styles.errorText}>{errorMessage}</Text>
+                {retryable && (
+                  <Pressable
+                    testID={testIds.summary.retry}
+                    accessibilityRole="button"
+                    accessibilityLabel="Retry summary"
+                    onPress={() => void loadSummary(true)}
+                    style={styles.retryButton}
+                  >
+                    <Text style={styles.retryText}>TRY AGAIN</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
+
+            {loadState === 'success' && (
+              <Text style={styles.summaryText}>&ldquo;{summary}&rdquo;</Text>
+            )}
+
             <Flourish double />
 
             <View style={styles.actions}>
@@ -58,13 +130,18 @@ export function SummaryModal({ visible, book, chapter, onClose, onMarkHeard }: S
               >
                 <Text style={styles.buttonSecondaryText}>CLOSE</Text>
               </Pressable>
-          <Pressable
-            testID={testIds.summary.markHeard}
-            accessibilityRole="button"
-            accessibilityLabel="Mark heard"
-            onPress={onMarkHeard}
-            style={[styles.button, styles.buttonPrimary]}
-          >
+              <Pressable
+                testID={testIds.summary.markHeard}
+                accessibilityRole="button"
+                accessibilityLabel="Mark heard"
+                onPress={onMarkHeard}
+                disabled={loadState === 'loading'}
+                style={[
+                  styles.button,
+                  styles.buttonPrimary,
+                  loadState === 'loading' && styles.buttonDisabled,
+                ]}
+              >
                 <Text style={styles.buttonPrimaryText}>MARK HEARD ✓</Text>
               </Pressable>
             </View>
@@ -129,6 +206,36 @@ const styles = StyleSheet.create({
     fontSize: 26,
     marginBottom: 12,
   },
+  centerBlock: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 12,
+  },
+  loadingText: {
+    fontFamily: fonts.fell,
+    color: colors.brown,
+    fontSize: 14,
+    fontStyle: 'italic',
+  },
+  errorText: {
+    fontFamily: fonts.lora,
+    color: colors.burgundy,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  retryButton: {
+    borderWidth: 1,
+    borderColor: colors.burgundyLight,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  retryText: {
+    fontFamily: fonts.cinzelRegular,
+    color: colors.burgundy,
+    fontSize: 10,
+    letterSpacing: 1.5,
+  },
   summaryText: {
     fontFamily: fonts.fell,
     color: '#2A1A0A',
@@ -153,6 +260,9 @@ const styles = StyleSheet.create({
   buttonPrimary: {
     backgroundColor: colors.burgundy,
     borderColor: colors.burgundyLight,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   buttonSecondaryText: {
     fontFamily: fonts.cinzelRegular,

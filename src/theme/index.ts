@@ -78,6 +78,7 @@ export const testIds = {
     modal: 'summary-modal',
     close: 'summary-close',
     markHeard: 'summary-mark-heard',
+    retry: 'summary-retry',
   },
   settings: {
     speed: (speed: number) => `settings-speed-${speed}`,

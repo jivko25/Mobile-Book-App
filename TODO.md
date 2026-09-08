@@ -54,10 +54,10 @@
 
 ## Фаза 3 — AI Summary (backend)
 
-- [ ] Thin backend proxy (serverless) за LLM API key
-- [ ] `summaryService.ts` — chapter text → summary
-- [ ] Кеширай summaries локално
-- [ ] Свържи SummaryModal + „MARK HEARD ✓"
+- [x] Thin backend proxy (Vercel — `book-app-bice-phi.vercel.app`)
+- [x] `summaryService.ts` — chapter text → summary + AsyncStorage cache
+- [x] Свържи SummaryModal (loading / error / retry)
+- [ ] `EXPO_PUBLIC_API_URL` в `.env` за physical device dev
 
 ---
 

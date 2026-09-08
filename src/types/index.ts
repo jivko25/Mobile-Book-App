@@ -58,3 +58,29 @@ export interface ParsedBook {
   synopsis: string;
   chapters: ParsedChapter[];
 }
+
+export interface SummaryRequest {
+  chapter_text: string;
+  book_title?: string;
+  chapter_title?: string;
+  chapter_numeral?: string;
+}
+
+export interface SummaryResponse {
+  summary: string;
+}
+
+export interface ApiErrorResponse {
+  detail: string;
+}
+
+export class SummaryServiceError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly retryable: boolean = false,
+  ) {
+    super(message);
+    this.name = 'SummaryServiceError';
+  }
+}
