@@ -1,0 +1,73 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-cinzel: 'Cinzel', serif;
+  --font-fell: 'IM Fell English', serif;
+  --font-lora: 'Lora', serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Hide scrollbars */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
+/* Parchment texture */
+.paper-bg {
+  background-color: #F5EDCC;
+  background-image:
+    radial-gradient(ellipse at 18% 22%, rgba(139, 90, 43, 0.07) 0%, transparent 55%),
+    radial-gradient(ellipse at 82% 78%, rgba(139, 90, 43, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(255, 248, 210, 0.4) 0%, transparent 65%),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+}
+
+/* Range input */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  background: rgba(196, 168, 130, 0.35);
+  height: 2px;
+  border-radius: 1px;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #C9A84C;
+  margin-top: -6px;
+  border: 1px solid rgba(201, 168, 76, 0.6);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+input[type='range']::-moz-range-track {
+  background: rgba(196, 168, 130, 0.35);
+  height: 2px;
+  border-radius: 1px;
+}
+input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #C9A84C;
+  border: 1px solid rgba(201, 168, 76, 0.6);
+}

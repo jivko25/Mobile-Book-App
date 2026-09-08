@@ -1,0 +1,47 @@
+appId: com.folio.audiobook
+---
+
+- launchApp
+- assertVisible:
+    id: "screen-library"
+- tapOn:
+    id: "nav-search"
+- assertVisible:
+    id: "screen-search"
+- tapOn:
+    id: "search-input"
+- inputText: "Hamlet"
+- assertVisible:
+    id: "search-result-1"
+- tapOn:
+    id: "search-result-1"
+- assertVisible:
+    id: "screen-detail"
+- tapOn:
+    id: "detail-back"
+- tapOn:
+    id: "nav-import"
+- assertVisible:
+    id: "screen-import"
+- tapOn:
+    id: "import-tab-pdf"
+- tapOn:
+    id: "import-drop-zone"
+- assertVisible:
+    id: "screen-processing"
+- extendedWaitUntil:
+    visible:
+      id: "screen-detail"
+    timeout: 15000
+- tapOn:
+    id: "nav-settings"
+- assertVisible:
+    id: "screen-settings"
+- tapOn:
+    id: "settings-speed-1.5"
+- tapOn:
+    id: "settings-voice-judi-dench"
+- tapOn:
+    id: "nav-library"
+- assertVisible:
+    id: "screen-library"

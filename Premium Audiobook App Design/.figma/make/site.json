@@ -1,0 +1,10 @@
+{
+  "description": "Immerse yourself in a Shakespearean literary world with this premium audiobook app, featuring elegant design, chapter progress tracking, and AI summaries.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

@@ -1,0 +1,34 @@
+appId: com.folio.audiobook
+---
+
+- launchApp
+- assertVisible:
+    id: "screen-library"
+- assertVisible:
+    id: "library-book-1"
+- tapOn:
+    id: "library-book-1"
+- assertVisible:
+    id: "screen-detail"
+- assertVisible:
+    id: "detail-resume"
+- tapOn:
+    id: "detail-resume"
+- assertVisible:
+    id: "screen-player"
+- assertVisible:
+    id: "player-play-pause"
+- tapOn:
+    id: "player-play-pause"
+- tapOn:
+    id: "player-summary"
+- assertVisible:
+    id: "summary-modal"
+- tapOn:
+    id: "summary-close"
+- tapOn:
+    id: "player-back"
+- tapOn:
+    id: "detail-back"
+- assertVisible:
+    id: "screen-library"
