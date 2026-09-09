@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { InteractionManager } from 'react-native';
 import { Chapter } from '../types';
 import { speechPlayer } from '../services/tts/speechPlayer';
 import {
   formatPlaybackTime,
   secondsToProgress,
-  SpeakWord,
 } from '../services/tts/speechTimeline';
 import { loadSettings } from '../services/tts/voicePreferences';
 
@@ -28,23 +28,31 @@ export function useChapterPlayer({
   const [elapsedSec, setElapsedSec] = useState(0);
   const [remainingSec, setRemainingSec] = useState(0);
   const [ready, setReady] = useState(false);
-  const [words, setWords] = useState<SpeakWord[]>([]);
-  const [currentWordIndex, setCurrentWordIndex] = useState(0);
 
   const progressRef = useRef(onProgressChange);
   const completeRef = useRef(onComplete);
   const chapterIdRef = useRef(chapter.id);
+  const chapterContentRef = useRef(chapter.content);
   const canPersistRef = useRef(false);
   const lastProgressRef = useRef(chapter.progress ?? 0);
 
   progressRef.current = onProgressChange;
   completeRef.current = onComplete;
   chapterIdRef.current = chapter.id;
+  if (chapter.content) {
+    chapterContentRef.current = chapter.content;
+  }
 
   useEffect(() => {
     let mounted = true;
     canPersistRef.current = false;
     setReady(false);
+
+    const text = chapter.content || chapterContentRef.current;
+    if (chapter.content) {
+      chapterContentRef.current = chapter.content;
+    }
+    const startProgress = chapter.progress ?? 0;
 
     const init = async () => {
       speechPlayer.pause();
@@ -53,9 +61,14 @@ export function useChapterPlayer({
       if (!mounted || chapterIdRef.current !== chapter.id) return;
 
       setSpeedState(settings.speed as PlaybackSpeed);
-      const startProgress = chapter.progress ?? 0;
+
+      await new Promise<void>((resolve) => {
+        InteractionManager.runAfterInteractions(() => resolve());
+      });
+      if (!mounted || chapterIdRef.current !== chapter.id) return;
+
       const loadedProgress = await speechPlayer.load(
-        chapter.content,
+        text,
         startProgress,
         settings.speed,
         settings.voiceId,
@@ -71,8 +84,6 @@ export function useChapterPlayer({
       );
       setPlaying(false);
       setReady(true);
-      setWords(speechPlayer.getWords());
-      setCurrentWordIndex(speechPlayer.getCurrentWordIndex());
       canPersistRef.current = true;
 
       speechPlayer.setListeners({
@@ -84,12 +95,10 @@ export function useChapterPlayer({
           setRemainingSec(
             Math.max(0, speechPlayer.getTotalSec() - speechPlayer.getPositionSec()),
           );
-          setCurrentWordIndex(speechPlayer.getCurrentWordIndex());
           progressRef.current?.(pct, chapterIdRef.current);
         },
-        onTick: (positionSec, wordIndex) => {
+        onTick: (positionSec) => {
           const totalSec = speechPlayer.getTotalSec();
-          setCurrentWordIndex(wordIndex);
           setElapsedSec(positionSec);
           setRemainingSec(Math.max(0, totalSec - positionSec));
           setProgress(secondsToProgress(positionSec, totalSec));
@@ -106,7 +115,7 @@ export function useChapterPlayer({
       canPersistRef.current = false;
       speechPlayer.pause();
     };
-  }, [chapter.id, chapter.content]);
+  }, [chapter.id]);
 
   const togglePlay = useCallback(() => {
     if (!ready) return;
@@ -135,8 +144,6 @@ export function useChapterPlayer({
     speed,
     speeds: SPEEDS,
     ready,
-    words,
-    currentWordIndex,
     elapsed: formatPlaybackTime(elapsedSec),
     remaining: formatPlaybackTime(remainingSec),
     togglePlay,

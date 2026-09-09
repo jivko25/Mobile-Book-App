@@ -1,5 +1,7 @@
 /** ~38 words ≈ 15 seconds at 140 wpm (Bulgarian narration pace) */
 const WORDS_PER_UNIT = 38;
+/** Android TTS rejects inputs near ~4000 chars — stay safely under. */
+const MAX_UNIT_CHARS = 3500;
 const WORDS_PER_MINUTE = 140;
 
 export interface SpeakUnit {
@@ -28,6 +30,32 @@ function unitDurationSec(wordCount: number, speed: number): number {
   return (wordCount / WORDS_PER_MINUTE) * 60 / speed;
 }
 
+function splitLongSentence(sentence: string, maxWords: number): string[] {
+  const tokens = sentence.split(/\s+/).filter(Boolean);
+  if (tokens.length <= maxWords) return [sentence.trim()].filter(Boolean);
+
+  const parts: string[] = [];
+  for (let i = 0; i < tokens.length; i += maxWords) {
+    parts.push(tokens.slice(i, i + maxWords).join(' '));
+  }
+  return parts;
+}
+
+function splitByCharLimit(text: string, maxChars: number): string[] {
+  if (text.length <= maxChars) return [text];
+
+  const parts: string[] = [];
+  let remaining = text.trim();
+  while (remaining.length > maxChars) {
+    let cut = remaining.lastIndexOf(' ', maxChars);
+    if (cut <= 0) cut = maxChars;
+    parts.push(remaining.slice(0, cut).trim());
+    remaining = remaining.slice(cut).trim();
+  }
+  if (remaining) parts.push(remaining);
+  return parts;
+}
+
 export function buildTimeline(
   text: string,
   speed: number,
@@ -42,19 +70,25 @@ export function buildTimeline(
     if (batch.length === 0) return;
     const unitText = batch.join(' ');
     const duration = unitDurationSec(batchWords, speed);
-    units.push({ text: unitText, startSec: cursor, durationSec: duration });
-    cursor += duration;
+    for (const part of splitByCharLimit(unitText, MAX_UNIT_CHARS)) {
+      const partWords = part.split(/\s+/).filter(Boolean).length;
+      const partDuration = unitDurationSec(partWords, speed);
+      units.push({ text: part, startSec: cursor, durationSec: partDuration });
+      cursor += partDuration;
+    }
     batch = [];
     batchWords = 0;
   };
 
   for (const sentence of sentences) {
-    const words = sentence.split(/\s+/).filter(Boolean).length;
-    if (batchWords + words > WORDS_PER_UNIT && batch.length > 0) {
-      flush();
+    for (const chunk of splitLongSentence(sentence, WORDS_PER_UNIT)) {
+      const words = chunk.split(/\s+/).filter(Boolean).length;
+      if (batchWords + words > WORDS_PER_UNIT && batch.length > 0) {
+        flush();
+      }
+      batch.push(chunk);
+      batchWords += words;
     }
-    batch.push(sentence);
-    batchWords += words;
   }
 
   flush();
@@ -130,3 +164,29 @@ export function findWordIndexAtTime(words: SpeakWord[], seconds: number): number
 
   return words.length - 1;
 }
+
+export function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+export function secondsPerWord(speed: number): number {
+  return unitDurationSec(1, speed);
+}
+
+/** O(1) word index — avoids building a full word timeline for long chapters. */
+export function wordIndexAtTime(
+  seconds: number,
+  speed: number,
+  wordCount: number,
+): number {
+  if (wordCount <= 0) return 0;
+  const idx = Math.floor(Math.max(0, seconds) / secondsPerWord(speed));
+  return Math.min(idx, wordCount - 1);
+}
+
+export function tokenizeWords(text: string): string[] {
+  return text.match(/\S+/g) ?? [];
+}
+
+/** Chapters above this word count start with READ ALONG collapsed. */
+export const LONG_CHAPTER_WORDS = 800;

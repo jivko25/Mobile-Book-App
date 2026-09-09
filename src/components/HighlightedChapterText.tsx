@@ -9,14 +9,18 @@ import {
   NativeSyntheticEvent,
   TextLayoutEventData,
 } from 'react-native';
-import { SpeakWord } from '../services/tts/speechTimeline';
+import { LONG_CHAPTER_WORDS, tokenizeWords } from '../services/tts/speechTimeline';
 import { colors, fonts } from '../theme';
 
+/** Only render this many words around the current position. */
+const WINDOW_RADIUS = 120;
+
 interface HighlightedChapterTextProps {
-  words: SpeakWord[];
+  text: string;
   currentWordIndex: number;
   accent: string;
   playing: boolean;
+  defaultCollapsed?: boolean;
   style?: ViewStyle;
 }
 
@@ -38,35 +42,48 @@ function buildPanelColors(accent: string) {
 }
 
 export function HighlightedChapterText({
-  words,
+  text,
   currentWordIndex,
   accent,
   playing,
+  defaultCollapsed,
   style,
 }: HighlightedChapterTextProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const tokens = useMemo(() => tokenizeWords(text), [text]);
+  const startCollapsed =
+    defaultCollapsed ?? tokens.length > LONG_CHAPTER_WORDS;
+  const [collapsed, setCollapsed] = useState(startCollapsed);
   const scrollRef = useRef<ScrollView>(null);
   const lineOffsets = useRef<number[]>([]);
   const panel = useMemo(() => buildPanelColors(accent), [accent]);
+
+  useEffect(() => {
+    setCollapsed(startCollapsed);
+  }, [text, startCollapsed]);
+
+  const windowStart = Math.max(0, currentWordIndex - WINDOW_RADIUS);
+  const windowEnd = Math.min(tokens.length, currentWordIndex + WINDOW_RADIUS + 1);
+  const visibleTokens = tokens.slice(windowStart, windowEnd);
 
   const onTextLayout = (event: NativeSyntheticEvent<TextLayoutEventData>) => {
     lineOffsets.current = event.nativeEvent.lines.map((line) => line.y);
   };
 
   useEffect(() => {
-    if (collapsed || words.length === 0) return;
+    if (collapsed || tokens.length === 0) return;
 
-    const lineIndex = Math.floor(currentWordIndex / 8);
+    const localIndex = currentWordIndex - windowStart;
+    const lineIndex = Math.floor(localIndex / 8);
     const y = lineOffsets.current[lineIndex] ?? lineIndex * 28;
     scrollRef.current?.scrollTo({
       y: Math.max(0, y - 48),
       animated: playing,
     });
-  }, [collapsed, currentWordIndex, playing, words.length]);
+  }, [collapsed, currentWordIndex, playing, tokens.length, windowStart]);
 
   const toggleCollapsed = () => setCollapsed((value) => !value);
 
-  if (words.length === 0) {
+  if (tokens.length === 0) {
     return (
       <View
         style={[
@@ -149,14 +166,20 @@ export function HighlightedChapterText({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
+            {windowStart > 0 && (
+              <Text style={[styles.ellipsis, { color: panel.past }]}>
+                … earlier text hidden for performance …
+              </Text>
+            )}
             <Text style={[styles.body, { color: panel.body }]} onTextLayout={onTextLayout}>
-              {words.map((word, index) => {
-                const isCurrent = index === currentWordIndex;
-                const isPast = index < currentWordIndex;
+              {visibleTokens.map((word, index) => {
+                const globalIndex = windowStart + index;
+                const isCurrent = globalIndex === currentWordIndex;
+                const isPast = globalIndex < currentWordIndex;
 
                 return (
                   <Text
-                    key={`${index}-${word.text}`}
+                    key={`${globalIndex}-${word}`}
                     style={[
                       styles.word,
                       { color: panel.body },
@@ -168,11 +191,16 @@ export function HighlightedChapterText({
                       isCurrent && styles.currentWord,
                     ]}
                   >
-                    {word.text}{' '}
+                    {word}{' '}
                   </Text>
                 );
               })}
             </Text>
+            {windowEnd < tokens.length && (
+              <Text style={[styles.ellipsis, { color: panel.past }]}>
+                … more text follows …
+              </Text>
+            )}
           </ScrollView>
         )}
       </View>
@@ -269,6 +297,13 @@ const styles = StyleSheet.create({
   currentWord: {
     fontFamily: fonts.loraMedium,
     fontWeight: '700',
+  },
+  ellipsis: {
+    fontFamily: fonts.loraItalic,
+    fontSize: 12,
+    textAlign: 'center',
+    marginVertical: 8,
+    opacity: 0.7,
   },
   empty: {
     padding: 16,

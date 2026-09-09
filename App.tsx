@@ -33,6 +33,16 @@ import {
 } from './src/services/storage/libraryStorage';
 import { speechPlayer } from './src/services/tts/speechPlayer';
 
+function mergeChapterContent(
+  stored: Chapter,
+  previous: Chapter | null | undefined,
+): Chapter {
+  if (!previous || previous.id !== stored.id) return stored;
+  if (stored.content) return stored;
+  if (previous.content) return { ...stored, content: previous.content };
+  return stored;
+}
+
 function AppContent() {
   const { books, loading, refresh } = useLibrary();
   const [screen, setScreen] = useState<Screen>('library');
@@ -56,7 +66,9 @@ function AppContent() {
       const chapterId = selectedChapterRef.current?.id;
       if (chapterId) {
         const ch = updated.chapters.find((c) => c.id === chapterId);
-        if (ch) setSelectedChapter(ch);
+        if (ch) {
+          setSelectedChapter((prev) => mergeChapterContent(ch, prev));
+        }
       }
       await refresh();
     },
@@ -81,7 +93,9 @@ function AppContent() {
     if (updated) {
       setSelectedBook(updated);
       const ch = updated.chapters.find((c) => c.id === chapter.id);
-      if (ch) setSelectedChapter(ch);
+      if (ch) {
+        setSelectedChapter((prev) => mergeChapterContent(ch, prev));
+      }
       await refresh();
     }
   }, [refresh]);

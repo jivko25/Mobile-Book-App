@@ -2,13 +2,12 @@ import * as Speech from 'expo-speech';
 import { setAudioModeAsync } from 'expo-audio';
 import {
   buildTimeline,
-  buildWordTimeline,
+  countWords,
   findUnitIndexAtTime,
-  findWordIndexAtTime,
   progressToSeconds,
   secondsToProgress,
   SpeakUnit,
-  SpeakWord,
+  wordIndexAtTime,
 } from './speechTimeline';
 import { resolveVoiceId, voiceLanguage, getNarrationVoices, TtsVoiceOption } from './voicePreferences';
 
@@ -23,7 +22,7 @@ const WORD_TICK_MS = 80;
 class SpeechPlayer {
   private sourceText = '';
   private units: SpeakUnit[] = [];
-  private words: SpeakWord[] = [];
+  private wordCount = 0;
   private unitIndex = 0;
   private currentWordIndex = 0;
   private positionSec = 0;
@@ -90,18 +89,17 @@ class SpeechPlayer {
     }
 
     const timeline = buildTimeline(text, speed);
-    const wordTimeline = buildWordTimeline(text, speed);
 
     if (generation !== this.loadGeneration) {
       return secondsToProgress(this.positionSec, this.totalSec);
     }
 
     this.units = timeline.units;
-    this.words = wordTimeline.words;
+    this.wordCount = countWords(text);
     this.totalSec = timeline.totalSec;
     this.positionSec = progressToSeconds(startProgress, this.totalSec);
     this.unitIndex = findUnitIndexAtTime(this.units, this.positionSec);
-    this.currentWordIndex = findWordIndexAtTime(this.words, this.positionSec);
+    this.currentWordIndex = this.getWordIndexAtTime(this.positionSec);
 
     return secondsToProgress(this.positionSec, this.totalSec);
   }
@@ -122,9 +120,13 @@ class SpeechPlayer {
     this.onProgress?.(secondsToProgress(this.positionSec, this.totalSec));
   }
 
+  private getWordIndexAtTime(seconds: number): number {
+    return wordIndexAtTime(seconds, this.speed, this.wordCount);
+  }
+
   private emitTick() {
     const positionSec = this.getPositionSec();
-    const wordIndex = findWordIndexAtTime(this.words, positionSec);
+    const wordIndex = this.getWordIndexAtTime(positionSec);
     if (wordIndex !== this.currentWordIndex) {
       this.currentWordIndex = wordIndex;
     }
@@ -185,14 +187,26 @@ class SpeechPlayer {
           this.positionSec = this.units[this.unitIndex].startSec;
         } else {
           this.positionSec = this.totalSec;
-          this.currentWordIndex = Math.max(0, this.words.length - 1);
+          this.currentWordIndex = Math.max(0, this.wordCount - 1);
         }
         this.emitProgress();
         this.emitTick();
-        this.speakCurrentUnit();
+        setTimeout(() => {
+          if (this.playing) this.speakCurrentUnit();
+        }, 50);
       },
       onStopped: () => {},
-      onError: () => {
+      onError: (error) => {
+        console.warn('[speechPlayer] TTS error:', error.message);
+        if (!this.playing) return;
+        this.stopWordTicker();
+        this.unitIndex += 1;
+        if (this.unitIndex < this.units.length) {
+          setTimeout(() => {
+            if (this.playing) this.speakCurrentUnit();
+          }, 100);
+          return;
+        }
         this.playing = false;
         this.emitState(false);
       },
@@ -219,7 +233,7 @@ class SpeechPlayer {
     this.playing = false;
     this.stopWordTicker();
     this.positionSec = this.getPositionSec();
-    this.currentWordIndex = findWordIndexAtTime(this.words, this.positionSec);
+    this.currentWordIndex = this.getWordIndexAtTime(this.positionSec);
     Speech.stop();
     this.emitState(false);
     this.emitProgress();
@@ -242,7 +256,7 @@ class SpeechPlayer {
       Math.min(this.getPositionSec() + delta, this.totalSec),
     );
     this.unitIndex = findUnitIndexAtTime(this.units, this.positionSec);
-    this.currentWordIndex = findWordIndexAtTime(this.words, this.positionSec);
+    this.currentWordIndex = this.getWordIndexAtTime(this.positionSec);
     this.emitProgress();
     this.emitTick();
 
@@ -261,13 +275,12 @@ class SpeechPlayer {
     const progress = secondsToProgress(this.positionSec, this.totalSec);
     this.speed = speed;
     const timeline = buildTimeline(this.sourceText, speed);
-    const wordTimeline = buildWordTimeline(this.sourceText, speed);
     this.units = timeline.units;
-    this.words = wordTimeline.words;
+    this.wordCount = countWords(this.sourceText);
     this.totalSec = timeline.totalSec;
     this.positionSec = progressToSeconds(progress, this.totalSec);
     this.unitIndex = findUnitIndexAtTime(this.units, this.positionSec);
-    this.currentWordIndex = findWordIndexAtTime(this.words, this.positionSec);
+    this.currentWordIndex = this.getWordIndexAtTime(this.positionSec);
     this.emitProgress();
     this.emitTick();
 
@@ -290,8 +303,8 @@ class SpeechPlayer {
     return this.totalSec;
   }
 
-  getWords(): SpeakWord[] {
-    return this.words;
+  getWordCount(): number {
+    return this.wordCount;
   }
 
   getCurrentWordIndex(): number {

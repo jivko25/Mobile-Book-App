@@ -9,7 +9,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Book, Chapter } from '../types';
 import {
   BookCover,
-  HighlightedChapterText,
   InkProgress,
   ScreenContainer,
 } from '../components';
@@ -213,13 +212,6 @@ export function PlayerScreen({
             ))}
           </View>
         </View>
-
-        <HighlightedChapterText
-          words={player.words}
-          currentWordIndex={player.currentWordIndex}
-          accent={book.accent}
-          playing={player.playing}
-        />
       </View>
     </ScreenContainer>
   );
@@ -257,7 +249,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
   },
   playerCore: {
-    flexShrink: 0,
+    flex: 1,
+    justifyContent: 'center',
   },
   coverSection: {
     alignItems: 'center',
