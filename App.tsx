@@ -22,7 +22,6 @@ import {
   PlayerScreen,
   ImportScreen,
   ProcessingScreen,
-  SearchScreen,
   SettingsScreen,
 } from './src/screens';
 import { colors } from './src/theme';
@@ -264,7 +263,7 @@ function AppContent() {
     ]);
   }, []);
 
-  const showBottomNav = ['library', 'search', 'import', 'settings'].includes(screen);
+  const showBottomNav = ['library', 'import', 'settings'].includes(screen);
 
   if (loading) {
     return (
@@ -322,9 +321,6 @@ function AppContent() {
               onComplete={handleImportComplete}
               onError={handleImportError}
             />
-          )}
-          {screen === 'search' && (
-            <SearchScreen books={books} onSelect={openBook} />
           )}
           {screen === 'settings' && <SettingsScreen />}
 

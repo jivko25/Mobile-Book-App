@@ -5,21 +5,6 @@ appId: com.folio.audiobook
 - assertVisible:
     id: "screen-library"
 - tapOn:
-    id: "nav-search"
-- assertVisible:
-    id: "screen-search"
-- tapOn:
-    id: "search-input"
-- inputText: "Hamlet"
-- assertVisible:
-    id: "search-result-1"
-- tapOn:
-    id: "search-result-1"
-- assertVisible:
-    id: "screen-detail"
-- tapOn:
-    id: "detail-back"
-- tapOn:
     id: "nav-import"
 - assertVisible:
     id: "screen-import"

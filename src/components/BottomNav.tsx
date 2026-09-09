@@ -3,17 +3,19 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../types';
 import { colors, fonts, testIds } from '../theme';
+import { IconBookOpen, IconPlusCircle, IconSliders } from './NavIcons';
+
+type NavTab = Extract<Screen, 'library' | 'import' | 'settings'>;
 
 interface BottomNavProps {
   active: Screen;
-  onChange: (screen: Screen) => void;
+  onChange: (screen: NavTab) => void;
 }
 
-const tabs: { id: Screen; label: string; icon: string }[] = [
-  { id: 'library', label: 'Library', icon: '📚' },
-  { id: 'search', label: 'Search', icon: '🔍' },
-  { id: 'import', label: 'Import', icon: '📜' },
-  { id: 'settings', label: 'Chamber', icon: '⚙' },
+const tabs: { id: NavTab; label: string; Icon: React.ComponentType<{ color: string; size?: number }> }[] = [
+  { id: 'library', label: 'Library', Icon: IconBookOpen },
+  { id: 'import', label: 'Import', Icon: IconPlusCircle },
+  { id: 'settings', label: 'Chamber', Icon: IconSliders },
 ];
 
 export function BottomNav({ active, onChange }: BottomNavProps) {
@@ -26,23 +28,24 @@ export function BottomNav({ active, onChange }: BottomNavProps) {
     >
       {tabs.map((tab) => {
         const isActive = active === tab.id;
-        const testID = testIds.nav[tab.id as keyof typeof testIds.nav];
+        const iconColor = isActive ? colors.burgundy : colors.brown;
+        const { Icon } = tab;
 
         return (
           <Pressable
             key={tab.id}
-            testID={testID}
+            testID={testIds.nav[tab.id]}
             accessibilityRole="button"
             accessibilityLabel={tab.label}
             accessibilityState={{ selected: isActive }}
             onPress={() => onChange(tab.id)}
             style={styles.tab}
           >
-            <Text style={styles.icon}>{tab.icon}</Text>
+            <Icon color={iconColor} size={22} />
             <Text
               style={[
                 styles.label,
-                { color: isActive ? colors.burgundy : colors.brown },
+                { color: iconColor },
               ]}
             >
               {tab.label.toUpperCase()}
@@ -70,10 +73,8 @@ const styles = StyleSheet.create({
   tab: {
     flex: 1,
     alignItems: 'center',
-    gap: 2,
-  },
-  icon: {
-    fontSize: 18,
+    gap: 4,
+    paddingVertical: 2,
   },
   label: {
     fontFamily: fonts.cinzelRegular,

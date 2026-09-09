@@ -50,7 +50,6 @@ export const testIds = {
   },
   nav: {
     library: 'nav-library',
-    search: 'nav-search',
     import: 'nav-import',
     settings: 'nav-settings',
   },
