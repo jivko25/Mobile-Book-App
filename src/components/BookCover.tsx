@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   sheen: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
 });

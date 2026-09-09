@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
+import { File } from 'expo-file-system';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ImportFormat, PendingImport } from '../types';
 import { Flourish, ScreenContainer } from '../components';
@@ -49,17 +49,16 @@ export function ImportScreen({ onBack, onFileSelected }: ImportScreenProps) {
     if (picking) return;
     setPicking(true);
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: MIME_TYPES[tab],
-        copyToCacheDirectory: true,
+      const result = await File.pickFileAsync({
+        mimeTypes: MIME_TYPES[tab],
       });
 
-      if (result.canceled || !result.assets?.[0]) return;
+      if (result.canceled || !result.result) return;
 
-      const asset = result.assets[0];
+      const picked = result.result;
       const format =
-        formatFromMime(asset.mimeType) ??
-        formatFromName(asset.name) ??
+        formatFromMime(picked.type || null) ??
+        formatFromName(picked.name) ??
         tab;
 
       if (format !== tab) {
@@ -71,9 +70,9 @@ export function ImportScreen({ onBack, onFileSelected }: ImportScreenProps) {
       }
 
       onFileSelected({
-        uri: asset.uri,
+        uri: picked.uri,
         format,
-        fileName: asset.name,
+        fileName: picked.name,
       });
     } catch {
       Alert.alert('Import failed', 'Could not open the file picker.');

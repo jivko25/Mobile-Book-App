@@ -59,8 +59,14 @@ function buildSynopsis(text: string): string {
   return `${cut.slice(0, lastSpace > 0 ? lastSpace : 280)}…`;
 }
 
-export async function parseEpub(base64: string, fileName: string): Promise<ParsedBook> {
-  const zip = await JSZip.loadAsync(base64, { base64: true });
+export async function parseEpub(
+  data: Uint8Array | string,
+  fileName: string,
+): Promise<ParsedBook> {
+  const zip =
+    typeof data === 'string'
+      ? await JSZip.loadAsync(data, { base64: true })
+      : await JSZip.loadAsync(data);
 
   const containerXml = await zip.file('META-INF/container.xml')?.async('string');
   if (!containerXml) throw new Error('Invalid EPUB: missing container.xml');

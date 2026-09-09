@@ -17,7 +17,7 @@ import {
   TtsVoiceOption,
 } from '../services/tts/voicePreferences';
 import { speechPlayer } from '../services/tts/speechPlayer';
-import { colors, fonts, spacing, testIds } from '../theme';
+import { colors, fonts, spacing, testIds, brand } from '../theme';
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
 
@@ -65,7 +65,7 @@ export function SettingsScreen() {
         }}
       >
         <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-          <Text style={styles.brand}>F O L I O</Text>
+          <Text style={styles.brand}>{brand.display}</Text>
           <Text style={styles.title}>The Chamber</Text>
           <Text style={styles.subtitle}>Arrange your reading preferences</Text>
         </View>
@@ -178,13 +178,12 @@ export function SettingsScreen() {
 
           <View style={styles.about}>
             <Text style={styles.aboutOrnament}>✦ ✦ ✦</Text>
-            <Text style={styles.aboutTitle}>FOLIO</Text>
+            <Text style={styles.aboutTitle}>{brand.name.toUpperCase()}</Text>
             <Text style={styles.aboutQuote}>
-              &ldquo;All the world&apos;s a stage, and all the men{'\n'}
-              and women merely players.&rdquo;
+              &ldquo;Exit, pursued by a pear.&rdquo;
             </Text>
             <Text style={styles.aboutVersion}>
-              Version I · IV · A Literary Experience
+              Version I · IV · A Pear by Any Other Name
             </Text>
           </View>
         </View>

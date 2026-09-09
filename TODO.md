@@ -1,4 +1,4 @@
-# FOLIO — TODO
+# Shakes Pear — TODO
 
 ## Текущо състояние
 
@@ -32,7 +32,7 @@
 ## ⏳ Фаза 2 — TTS и аудио (ГОТОВО — on-device speech)
 
 - [x] `expo-speech` — текст → говор on-device (без backend)
-- [x] `expo-av` — audio mode (silent mode iOS, background)
+- [x] `expo-audio` — audio mode (silent mode iOS, background)
 - [x] Chunk queue — дълги глави се разделят на части за TTS
 - [x] PlayerScreen — реален play/pause, seek, speed, prev/next chapter
 - [x] Прогрес се пази в AsyncStorage (per chapter + book %)

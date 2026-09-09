@@ -4,7 +4,7 @@ import { VoiceQuality } from 'expo-speech';
 
 const SETTINGS_KEY = '@folio/settings';
 
-/** Primary narration language for FOLIO */
+/** Primary narration language for Shakes Pear */
 export const PRIMARY_LANGUAGE = 'bg-BG';
 
 export interface TtsVoiceOption {

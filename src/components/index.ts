@@ -4,3 +4,4 @@ export { BookCover } from './BookCover';
 export { BottomNav } from './BottomNav';
 export { SummaryModal } from './SummaryModal';
 export { ScreenContainer } from './ScreenContainer';
+export { HighlightedChapterText } from './HighlightedChapterText';

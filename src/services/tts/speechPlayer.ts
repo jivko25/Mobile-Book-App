@@ -1,24 +1,31 @@
 import * as Speech from 'expo-speech';
-import { Audio } from 'expo-av';
+import { setAudioModeAsync } from 'expo-audio';
 import {
   buildTimeline,
+  buildWordTimeline,
   findUnitIndexAtTime,
+  findWordIndexAtTime,
   progressToSeconds,
   secondsToProgress,
   SpeakUnit,
+  SpeakWord,
 } from './speechTimeline';
 import { resolveVoiceId, voiceLanguage, getNarrationVoices, TtsVoiceOption } from './voicePreferences';
 
 type ProgressListener = (progress: number) => void;
+type TickListener = (positionSec: number, wordIndex: number) => void;
 type StateListener = (playing: boolean) => void;
 type CompleteListener = () => void;
 
 const SKIP_SECONDS = 15;
+const WORD_TICK_MS = 80;
 
 class SpeechPlayer {
   private sourceText = '';
   private units: SpeakUnit[] = [];
+  private words: SpeakWord[] = [];
   private unitIndex = 0;
+  private currentWordIndex = 0;
   private positionSec = 0;
   private totalSec = 0;
   private speed = 1;
@@ -27,16 +34,19 @@ class SpeechPlayer {
   private playing = false;
   private audioReady = false;
   private loadGeneration = 0;
+  private unitStartedAt = 0;
+  private wordTickTimer: ReturnType<typeof setInterval> | null = null;
   private onProgress?: ProgressListener;
+  private onTick?: TickListener;
   private onStateChange?: StateListener;
   private onComplete?: CompleteListener;
 
   async ensureAudioMode() {
     if (this.audioReady) return;
-    await Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: true,
-      shouldDuckAndroid: true,
+    await setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'duckOthers',
     });
     this.audioReady = true;
   }
@@ -48,10 +58,12 @@ class SpeechPlayer {
 
   setListeners(listeners: {
     onProgress?: ProgressListener;
+    onTick?: TickListener;
     onStateChange?: StateListener;
     onComplete?: CompleteListener;
   }) {
     this.onProgress = listeners.onProgress;
+    this.onTick = listeners.onTick;
     this.onStateChange = listeners.onStateChange;
     this.onComplete = listeners.onComplete;
   }
@@ -78,15 +90,18 @@ class SpeechPlayer {
     }
 
     const timeline = buildTimeline(text, speed);
+    const wordTimeline = buildWordTimeline(text, speed);
 
     if (generation !== this.loadGeneration) {
       return secondsToProgress(this.positionSec, this.totalSec);
     }
 
     this.units = timeline.units;
+    this.words = wordTimeline.words;
     this.totalSec = timeline.totalSec;
     this.positionSec = progressToSeconds(startProgress, this.totalSec);
     this.unitIndex = findUnitIndexAtTime(this.units, this.positionSec);
+    this.currentWordIndex = findWordIndexAtTime(this.words, this.positionSec);
 
     return secondsToProgress(this.positionSec, this.totalSec);
   }
@@ -105,6 +120,29 @@ class SpeechPlayer {
 
   private emitProgress() {
     this.onProgress?.(secondsToProgress(this.positionSec, this.totalSec));
+  }
+
+  private emitTick() {
+    const positionSec = this.getPositionSec();
+    const wordIndex = findWordIndexAtTime(this.words, positionSec);
+    if (wordIndex !== this.currentWordIndex) {
+      this.currentWordIndex = wordIndex;
+    }
+    this.onTick?.(positionSec, this.currentWordIndex);
+  }
+
+  private stopWordTicker() {
+    if (this.wordTickTimer) {
+      clearInterval(this.wordTickTimer);
+      this.wordTickTimer = null;
+    }
+  }
+
+  private startWordTicker() {
+    this.stopWordTicker();
+    this.unitStartedAt = Date.now();
+    this.emitTick();
+    this.wordTickTimer = setInterval(() => this.emitTick(), WORD_TICK_MS);
   }
 
   private emitState(playing: boolean) {
@@ -135,18 +173,22 @@ class SpeechPlayer {
 
     const unit = this.units[this.unitIndex];
     this.positionSec = unit.startSec;
+    this.startWordTicker();
 
     Speech.speak(unit.text, {
       ...this.getSpeakOptions(),
       onDone: () => {
         if (!this.playing) return;
+        this.stopWordTicker();
         this.unitIndex += 1;
         if (this.unitIndex < this.units.length) {
           this.positionSec = this.units[this.unitIndex].startSec;
         } else {
           this.positionSec = this.totalSec;
+          this.currentWordIndex = Math.max(0, this.words.length - 1);
         }
         this.emitProgress();
+        this.emitTick();
         this.speakCurrentUnit();
       },
       onStopped: () => {},
@@ -175,9 +217,13 @@ class SpeechPlayer {
 
   pause() {
     this.playing = false;
+    this.stopWordTicker();
+    this.positionSec = this.getPositionSec();
+    this.currentWordIndex = findWordIndexAtTime(this.words, this.positionSec);
     Speech.stop();
     this.emitState(false);
     this.emitProgress();
+    this.emitTick();
   }
 
   toggle() {
@@ -187,15 +233,18 @@ class SpeechPlayer {
 
   skipSeconds(delta: number) {
     const wasPlaying = this.playing;
+    this.stopWordTicker();
     Speech.stop();
     this.playing = false;
 
     this.positionSec = Math.max(
       0,
-      Math.min(this.positionSec + delta, this.totalSec),
+      Math.min(this.getPositionSec() + delta, this.totalSec),
     );
     this.unitIndex = findUnitIndexAtTime(this.units, this.positionSec);
+    this.currentWordIndex = findWordIndexAtTime(this.words, this.positionSec);
     this.emitProgress();
+    this.emitTick();
 
     if (wasPlaying) void this.play();
   }
@@ -212,11 +261,15 @@ class SpeechPlayer {
     const progress = secondsToProgress(this.positionSec, this.totalSec);
     this.speed = speed;
     const timeline = buildTimeline(this.sourceText, speed);
+    const wordTimeline = buildWordTimeline(this.sourceText, speed);
     this.units = timeline.units;
+    this.words = wordTimeline.words;
     this.totalSec = timeline.totalSec;
     this.positionSec = progressToSeconds(progress, this.totalSec);
     this.unitIndex = findUnitIndexAtTime(this.units, this.positionSec);
+    this.currentWordIndex = findWordIndexAtTime(this.words, this.positionSec);
     this.emitProgress();
+    this.emitTick();
 
     if (this.playing) {
       Speech.stop();
@@ -225,6 +278,11 @@ class SpeechPlayer {
   }
 
   getPositionSec() {
+    if (this.playing && this.units[this.unitIndex]) {
+      const unit = this.units[this.unitIndex];
+      const elapsed = (Date.now() - this.unitStartedAt) / 1000;
+      return unit.startSec + Math.min(Math.max(0, elapsed), unit.durationSec);
+    }
     return this.positionSec;
   }
 
@@ -232,9 +290,18 @@ class SpeechPlayer {
     return this.totalSec;
   }
 
+  getWords(): SpeakWord[] {
+    return this.words;
+  }
+
+  getCurrentWordIndex(): number {
+    return this.currentWordIndex;
+  }
+
   destroy() {
     this.pause();
     this.onProgress = undefined;
+    this.onTick = undefined;
     this.onStateChange = undefined;
     this.onComplete = undefined;
   }

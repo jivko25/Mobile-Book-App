@@ -8,6 +8,12 @@ export interface SpeakUnit {
   durationSec: number;
 }
 
+export interface SpeakWord {
+  text: string;
+  startSec: number;
+  durationSec: number;
+}
+
 function splitSentences(text: string): string[] {
   const normalized = text.replace(/\s+/g, ' ').trim();
   if (!normalized) return [];
@@ -92,4 +98,35 @@ export function findUnitIndexAtTime(units: SpeakUnit[], seconds: number): number
     if (clamped < end || i === units.length - 1) return i;
   }
   return units.length - 1;
+}
+
+/** Word-level timeline for karaoke-style highlighting (estimated from WPM). */
+export function buildWordTimeline(
+  text: string,
+  speed: number,
+): { words: SpeakWord[]; totalSec: number } {
+  const tokens = text.match(/\S+/g) ?? [];
+  const words: SpeakWord[] = [];
+  let cursor = 0;
+
+  for (const token of tokens) {
+    const duration = unitDurationSec(1, speed);
+    words.push({ text: token, startSec: cursor, durationSec: duration });
+    cursor += duration;
+  }
+
+  return { words, totalSec: cursor };
+}
+
+export function findWordIndexAtTime(words: SpeakWord[], seconds: number): number {
+  if (words.length === 0) return 0;
+  const last = words[words.length - 1];
+  const clamped = Math.max(0, Math.min(seconds, last.startSec + last.durationSec));
+
+  for (let i = 0; i < words.length; i++) {
+    const end = words[i].startSec + words[i].durationSec;
+    if (clamped < end || i === words.length - 1) return i;
+  }
+
+  return words.length - 1;
 }

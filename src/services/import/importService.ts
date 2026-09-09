@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system/legacy';
+import { File, Paths } from 'expo-file-system';
 import {
   Book,
   ImportFormat,
@@ -31,25 +31,80 @@ export const IMPORT_STEPS: Record<ImportStep, string> = {
   done: 'Volume ready.',
 };
 
-async function readFile(uri: string, format: ImportFormat): Promise<string> {
-  if (format === 'txt') {
-    return FileSystem.readAsStringAsync(uri, { encoding: 'utf8' });
-  }
-  return FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+function sanitizeFileName(name: string): string {
+  return name.replace(/[^\w.\-() ]+/g, '_').slice(0, 80) || 'import';
 }
 
-async function parseFile(
-  raw: string,
+async function readFileBytes(file: File): Promise<Uint8Array> {
+  if (file.exists) {
+    try {
+      return await file.bytes();
+    } catch {
+      // Fall back to fetch below.
+    }
+  }
+
+  const response = await fetch(file.uri);
+  if (!response.ok) {
+    throw new Error(`Could not read file (HTTP ${response.status}).`);
+  }
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+async function readFileText(file: File): Promise<string> {
+  if (file.exists) {
+    try {
+      return await file.text();
+    } catch {
+      // Fall back to fetch below.
+    }
+  }
+
+  const response = await fetch(file.uri);
+  if (!response.ok) {
+    throw new Error(`Could not read file (HTTP ${response.status}).`);
+  }
+  return response.text();
+}
+
+/** Materialize picked files into app cache for reliable reads on Android. */
+async function openImportFile(uri: string, fileName: string): Promise<File> {
+  const source = new File(uri);
+
+  if (uri.startsWith('file://') && source.exists) {
+    return source;
+  }
+
+  const dest = new File(
+    Paths.cache,
+    `import-${Date.now()}-${sanitizeFileName(fileName)}`,
+  );
+
+  try {
+    await source.copy(dest, { overwrite: true });
+    if (dest.exists) return dest;
+  } catch {
+    // copy() can fail for some content:// URIs — write via fetch instead.
+  }
+
+  const bytes = await readFileBytes(source);
+  dest.create({ overwrite: true });
+  dest.write(bytes);
+  return dest;
+}
+
+async function parseImportFile(
+  file: File,
   format: ImportFormat,
   fileName: string,
 ): Promise<ParsedBook> {
   switch (format) {
     case 'txt':
-      return parseTxt(raw, fileName);
+      return parseTxt(await readFileText(file), fileName);
     case 'epub':
-      return parseEpub(raw, fileName);
+      return parseEpub(await readFileBytes(file), fileName);
     case 'pdf':
-      return parsePdf(raw, fileName);
+      return parsePdf(await file.base64(), fileName);
   }
 }
 
@@ -93,10 +148,10 @@ export async function importVolume(
   onStep?: (step: ImportStep) => void,
 ): Promise<Book> {
   onStep?.('reading');
-  const raw = await readFile(pending.uri, pending.format);
+  const file = await openImportFile(pending.uri, pending.fileName);
 
   onStep?.('parsing');
-  const parsed = await parseFile(raw, pending.format, pending.fileName);
+  const parsed = await parseImportFile(file, pending.format, pending.fileName);
 
   onStep?.('chapters');
   if (parsed.chapters.length === 0) {

@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Chapter } from '../types';
 import { speechPlayer } from '../services/tts/speechPlayer';
-import { formatPlaybackTime } from '../services/tts/speechTimeline';
+import {
+  formatPlaybackTime,
+  secondsToProgress,
+  SpeakWord,
+} from '../services/tts/speechTimeline';
 import { loadSettings } from '../services/tts/voicePreferences';
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2] as const;
@@ -24,6 +28,8 @@ export function useChapterPlayer({
   const [elapsedSec, setElapsedSec] = useState(0);
   const [remainingSec, setRemainingSec] = useState(0);
   const [ready, setReady] = useState(false);
+  const [words, setWords] = useState<SpeakWord[]>([]);
+  const [currentWordIndex, setCurrentWordIndex] = useState(0);
 
   const progressRef = useRef(onProgressChange);
   const completeRef = useRef(onComplete);
@@ -65,6 +71,8 @@ export function useChapterPlayer({
       );
       setPlaying(false);
       setReady(true);
+      setWords(speechPlayer.getWords());
+      setCurrentWordIndex(speechPlayer.getCurrentWordIndex());
       canPersistRef.current = true;
 
       speechPlayer.setListeners({
@@ -76,7 +84,15 @@ export function useChapterPlayer({
           setRemainingSec(
             Math.max(0, speechPlayer.getTotalSec() - speechPlayer.getPositionSec()),
           );
+          setCurrentWordIndex(speechPlayer.getCurrentWordIndex());
           progressRef.current?.(pct, chapterIdRef.current);
+        },
+        onTick: (positionSec, wordIndex) => {
+          const totalSec = speechPlayer.getTotalSec();
+          setCurrentWordIndex(wordIndex);
+          setElapsedSec(positionSec);
+          setRemainingSec(Math.max(0, totalSec - positionSec));
+          setProgress(secondsToProgress(positionSec, totalSec));
         },
         onStateChange: setPlaying,
         onComplete: () => completeRef.current?.(),
@@ -119,6 +135,8 @@ export function useChapterPlayer({
     speed,
     speeds: SPEEDS,
     ready,
+    words,
+    currentWordIndex,
     elapsed: formatPlaybackTime(elapsedSec),
     remaining: formatPlaybackTime(remainingSec),
     togglePlay,

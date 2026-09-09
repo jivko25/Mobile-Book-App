@@ -1,3 +1,8 @@
+export const brand = {
+  name: 'Shakes Pear',
+  display: 'S H A K E S  P E A R',
+};
+
 export const colors = {
   parchment: '#F5EDCC',
   parchmentDark: '#D4C49A',

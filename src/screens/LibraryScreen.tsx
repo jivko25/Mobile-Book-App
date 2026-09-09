@@ -15,7 +15,7 @@ import {
   InkProgress,
   ScreenContainer,
 } from '../components';
-import { colors, fonts, spacing, testIds } from '../theme';
+import { colors, fonts, spacing, testIds, brand } from '../theme';
 
 interface LibraryScreenProps {
   books: Book[];
@@ -39,7 +39,7 @@ export function LibraryScreen({ books, onSelect }: LibraryScreenProps) {
         }}
       >
         <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-          <Text style={styles.brand}>F O L I O</Text>
+          <Text style={styles.brand}>{brand.display}</Text>
           <Text style={styles.title}>The Library</Text>
           <Text style={styles.subtitle}>Your literary collection</Text>
         </View>
