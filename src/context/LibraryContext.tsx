@@ -22,8 +22,12 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    const stored = await loadBooks();
-    setBooks(stored);
+    try {
+      const stored = await loadBooks();
+      setBooks(stored);
+    } catch {
+      setBooks([]);
+    }
   }, []);
 
   useEffect(() => {

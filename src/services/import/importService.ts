@@ -35,6 +35,42 @@ function sanitizeFileName(name: string): string {
   return name.replace(/[^\w.\-() ]+/g, '_').slice(0, 80) || 'import';
 }
 
+function isRemoteUri(uri: string): boolean {
+  return uri.startsWith('http://') || uri.startsWith('https://');
+}
+
+function isFileUri(uri: string): boolean {
+  return uri.startsWith('file://');
+}
+
+function cacheDestPath(fileName: string): File {
+  return new File(
+    Paths.cache,
+    `import-${Date.now()}-${sanitizeFileName(fileName)}`,
+  );
+}
+
+async function fetchBytes(uri: string): Promise<Uint8Array> {
+  const response = await fetch(uri);
+  if (!response.ok) {
+    throw new Error(`Could not download file (HTTP ${response.status}).`);
+  }
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+async function downloadRemoteFile(uri: string, fileName: string): Promise<File> {
+  const dest = cacheDestPath(fileName);
+
+  try {
+    return await File.downloadFileAsync(uri, dest, { idempotent: true });
+  } catch {
+    const bytes = await fetchBytes(uri);
+    dest.create({ overwrite: true });
+    dest.write(bytes);
+    return dest;
+  }
+}
+
 async function readFileBytes(file: File): Promise<Uint8Array> {
   if (file.exists) {
     try {
@@ -67,27 +103,30 @@ async function readFileText(file: File): Promise<string> {
   return response.text();
 }
 
-/** Materialize picked files into app cache for reliable reads on Android. */
+/** Materialize picked or remote files into app cache for reliable reads. */
 async function openImportFile(uri: string, fileName: string): Promise<File> {
-  const source = new File(uri);
-
-  if (uri.startsWith('file://') && source.exists) {
-    return source;
+  if (isRemoteUri(uri)) {
+    return downloadRemoteFile(uri, fileName);
   }
 
-  const dest = new File(
-    Paths.cache,
-    `import-${Date.now()}-${sanitizeFileName(fileName)}`,
-  );
+  if (isFileUri(uri)) {
+    const source = new File(uri);
+    if (source.exists) {
+      return source;
+    }
+  }
+
+  const dest = cacheDestPath(fileName);
 
   try {
+    const source = new File(uri);
     await source.copy(dest, { overwrite: true });
     if (dest.exists) return dest;
   } catch {
     // copy() can fail for some content:// URIs — write via fetch instead.
   }
 
-  const bytes = await readFileBytes(source);
+  const bytes = await fetchBytes(uri);
   dest.create({ overwrite: true });
   dest.write(bytes);
   return dest;
@@ -160,7 +199,18 @@ export async function importVolume(
 
   onStep?.('saving');
   const book = parsedToBook(parsed, pending);
-  await addBook(book);
+  try {
+    await addBook(book);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Could not save this book.';
+    if (message.includes('CursorWindow') || message.includes('Row too big')) {
+      throw new Error(
+        'Book is too large for device storage. Clear app data and try again.',
+      );
+    }
+    throw error;
+  }
 
   onStep?.('done');
   return book;

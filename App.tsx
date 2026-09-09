@@ -27,6 +27,7 @@ import {
 import { colors } from './src/theme';
 import {
   getBookById,
+  getChapterWithContent,
   markChapterHeard,
   updateListeningProgress,
 } from './src/services/storage/libraryStorage';
@@ -147,7 +148,7 @@ function AppContent() {
       const fresh = await getBookById(bookId);
       if (!fresh) return;
 
-      const chapter = fresh.chapters.find((c) => c.id === chapterId);
+      const chapter = await getChapterWithContent(bookId, chapterId);
       if (!chapter) return;
 
       lastProgressRef.current = chapter.progress ?? 0;
@@ -172,7 +173,10 @@ function AppContent() {
       if (!fresh) return;
 
       const idx = fresh.chapters.findIndex((c) => c.id === chapter.id);
-      const next = fresh.chapters[idx + direction];
+      const nextMeta = fresh.chapters[idx + direction];
+      if (!nextMeta) return;
+
+      const next = await getChapterWithContent(book.id, nextMeta.id);
       if (!next) return;
 
       lastProgressRef.current = next.progress ?? 0;
@@ -227,8 +231,12 @@ function AppContent() {
     if (!book) return;
 
     const fresh = (await getBookById(book.id)) ?? book;
-    const resumeChapter =
+    const resumeMeta =
       fresh.chapters.find((c) => c.id === fresh.lastChapterId) ?? fresh.chapters[0];
+    if (!resumeMeta) return;
+
+    const resumeChapter = await getChapterWithContent(fresh.id, resumeMeta.id);
+    if (!resumeChapter) return;
 
     lastProgressRef.current = resumeChapter.progress ?? 0;
     setSelectedBook(fresh);
