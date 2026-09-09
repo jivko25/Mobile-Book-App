@@ -4,6 +4,7 @@ export type Screen =
   | 'processing'
   | 'detail'
   | 'player'
+  | 'reader'
   | 'search'
   | 'settings';
 
@@ -14,7 +15,12 @@ export interface Chapter {
   numeral: string;
   title: string;
   duration: string;
+  /** Listening progress (TTS), 0–100 */
   progress: number;
+  /** Reading progress (reader), 0–100 */
+  readProgress: number;
+  /** Character offset in chapter text for precise reader resume */
+  readCharOffset: number;
   /** Parsed chapter text — used for TTS in phase 2 */
   content: string;
 }
@@ -32,6 +38,7 @@ export interface Book {
   progress: number;
   totalDuration: string;
   lastChapterId?: number;
+  lastReadChapterId?: number;
   lastPosition?: string;
   synopsis: string;
   chapters: Chapter[];

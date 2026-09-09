@@ -21,6 +21,7 @@ interface BookDetailScreenProps {
   book: Book;
   onBack: () => void;
   onPlayChapter: (chapter: Chapter) => void;
+  onReadChapter: (chapter: Chapter) => void;
   onResume: () => void;
 }
 
@@ -28,6 +29,7 @@ export function BookDetailScreen({
   book,
   onBack,
   onPlayChapter,
+  onReadChapter,
   onResume,
 }: BookDetailScreenProps) {
   const insets = useSafeAreaInsets();
@@ -101,14 +103,7 @@ export function BookDetailScreen({
 
           <Text style={styles.chaptersLabel}>ACTS & CHAPTERS</Text>
           {book.chapters.map((ch) => (
-            <Pressable
-              key={ch.id}
-              testID={testIds.detail.chapter(ch.id)}
-              accessibilityRole="button"
-              accessibilityLabel={`Play ${ch.title}`}
-              onPress={() => onPlayChapter(ch)}
-              style={styles.chapterRow}
-            >
+            <View key={ch.id} style={styles.chapterRow}>
               <View
                 style={[
                   styles.chapterBadge,
@@ -130,20 +125,51 @@ export function BookDetailScreen({
                 <Text style={styles.chapterDuration}>{ch.duration}</Text>
                 {ch.progress > 0 && ch.progress < 100 && (
                   <View style={styles.chapterProgress}>
+                    <Text style={styles.progressKind}>Heard</Text>
                     <InkProgress pct={ch.progress} height={2} />
                   </View>
                 )}
-              </View>
-              <View style={styles.playIcon}>
-                {ch.progress === 100 ? (
-                  <Text style={styles.replayIcon}>↺</Text>
-                ) : (
-                  <View style={styles.playCircle}>
-                    <Text style={styles.playTriangle}>▶</Text>
+                {(ch.readProgress ?? 0) > 0 && (ch.readProgress ?? 0) < 100 && (
+                  <View style={styles.chapterProgress}>
+                    <Text style={styles.progressKind}>Read</Text>
+                    <InkProgress
+                      pct={ch.readProgress ?? 0}
+                      height={2}
+                      color={colors.brown}
+                    />
                   </View>
                 )}
+                {(ch.readProgress ?? 0) === 100 && (
+                  <Text style={styles.readComplete}>Read complete</Text>
+                )}
               </View>
-            </Pressable>
+              <View style={styles.chapterActions}>
+                <Pressable
+                  testID={testIds.detail.readChapter(ch.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Read ${ch.title}`}
+                  onPress={() => onReadChapter(ch)}
+                  style={styles.readButton}
+                >
+                  <Text style={styles.readButtonText}>READ</Text>
+                </Pressable>
+                <Pressable
+                  testID={testIds.detail.chapter(ch.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Play ${ch.title}`}
+                  onPress={() => onPlayChapter(ch)}
+                  style={styles.playIcon}
+                >
+                  {ch.progress === 100 ? (
+                    <Text style={styles.replayIcon}>↺</Text>
+                  ) : (
+                    <View style={styles.playCircle}>
+                      <Text style={styles.playTriangle}>▶</Text>
+                    </View>
+                  )}
+                </Pressable>
+              </View>
+            </View>
           ))}
         </View>
       </ScrollView>
@@ -309,6 +335,38 @@ const styles = StyleSheet.create({
   },
   chapterProgress: {
     marginTop: 5,
+    gap: 3,
+  },
+  progressKind: {
+    fontFamily: fonts.lora,
+    fontSize: 9,
+    color: colors.brown,
+  },
+  readComplete: {
+    fontFamily: fonts.lora,
+    fontSize: 9,
+    color: colors.brown,
+    marginTop: 5,
+  },
+  chapterActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  readButton: {
+    borderWidth: 1,
+    borderColor: 'rgba(139,64,64,0.35)',
+    backgroundColor: colors.goldBg,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    borderRadius: 2,
+  },
+  readButtonText: {
+    fontFamily: fonts.cinzelRegular,
+    fontSize: 8,
+    letterSpacing: 1.2,
+    color: colors.burgundy,
   },
   playIcon: {
     flexShrink: 0,

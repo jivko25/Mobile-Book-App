@@ -121,10 +121,22 @@ async function readChapterContent(
   return file.text();
 }
 
+function normalizeChapterMeta(
+  chapter: Omit<Chapter, 'content'> & Partial<Pick<Chapter, 'content'>>,
+): StoredChapter {
+  const { content: _content, ...meta } = chapter;
+  return {
+    ...meta,
+    progress: meta.progress ?? 0,
+    readProgress: meta.readProgress ?? 0,
+    readCharOffset: meta.readCharOffset ?? 0,
+  };
+}
+
 function toStoredBook(book: Book): StoredBook {
   return {
     ...book,
-    chapters: book.chapters.map(({ content: _content, ...meta }) => meta),
+    chapters: book.chapters.map((ch) => normalizeChapterMeta(ch)),
   };
 }
 
@@ -201,7 +213,10 @@ async function loadBookMeta(bookId: string): Promise<StoredBook | null> {
       return slim;
     }
 
-    return parsed as StoredBook;
+    return {
+      ...parsed,
+      chapters: (parsed.chapters ?? []).map((ch) => normalizeChapterMeta(ch)),
+    };
   } catch {
     await safeRemoveItem(bookMetaKey(bookId));
     return null;
@@ -355,6 +370,38 @@ export async function markChapterHeard(
   chapterId: number,
 ): Promise<Book | null> {
   return updateListeningProgress(bookId, chapterId, 100);
+}
+
+export async function updateReadingProgress(
+  bookId: string,
+  chapterId: number,
+  readProgress: number,
+  readCharOffset?: number,
+): Promise<Book | null> {
+  const stored = await loadBookMeta(bookId);
+  if (!stored) return null;
+
+  const chapterIndex = stored.chapters.findIndex((c) => c.id === chapterId);
+  if (chapterIndex === -1) return null;
+
+  const currentChapter = stored.chapters[chapterIndex];
+  const currentProgress = currentChapter.readProgress ?? 0;
+  const currentOffset = currentChapter.readCharOffset ?? 0;
+  const nextOffset = Math.max(currentOffset, readCharOffset ?? 0);
+  const rounded = Math.min(100, Math.round(Math.max(currentProgress, readProgress)));
+
+  const updated: StoredBook = {
+    ...stored,
+    chapters: stored.chapters.map((ch, i) =>
+      i === chapterIndex
+        ? { ...ch, readProgress: rounded, readCharOffset: nextOffset }
+        : ch,
+    ),
+    lastReadChapterId: chapterId,
+  };
+
+  await saveBookMeta(updated);
+  return stripContent(updated);
 }
 
 /** Clears oversized legacy SQLite rows — call if storage errors persist. */

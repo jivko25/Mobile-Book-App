@@ -46,6 +46,7 @@ export const testIds = {
     settings: 'screen-settings',
     detail: 'screen-detail',
     player: 'screen-player',
+    reader: 'screen-reader',
     processing: 'screen-processing',
   },
   nav: {
@@ -61,6 +62,14 @@ export const testIds = {
     back: 'detail-back',
     resume: 'detail-resume',
     chapter: (id: number) => `detail-chapter-${id}`,
+    readChapter: (id: number) => `detail-read-${id}`,
+  },
+  reader: {
+    back: 'reader-back',
+    fontDecrease: 'reader-font-decrease',
+    fontIncrease: 'reader-font-increase',
+    modeScroll: 'reader-mode-scroll',
+    modePages: 'reader-mode-pages',
   },
   player: {
     back: 'player-back',

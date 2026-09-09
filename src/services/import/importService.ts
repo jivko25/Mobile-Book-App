@@ -161,6 +161,8 @@ function parsedToBook(
     content: ch.content,
     duration: estimateDuration(ch.content),
     progress: 0,
+    readProgress: 0,
+    readCharOffset: 0,
   }));
 
   return {

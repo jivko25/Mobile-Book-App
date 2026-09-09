@@ -20,6 +20,7 @@ import {
   LibraryScreen,
   BookDetailScreen,
   PlayerScreen,
+  ReaderScreen,
   ImportScreen,
   ProcessingScreen,
   SettingsScreen,
@@ -30,6 +31,7 @@ import {
   getChapterWithContent,
   markChapterHeard,
   updateListeningProgress,
+  updateReadingProgress,
 } from './src/services/storage/libraryStorage';
 import { speechPlayer } from './src/services/tts/speechPlayer';
 
@@ -53,7 +55,10 @@ function AppContent() {
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
 
   const progressSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const readProgressSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastProgressRef = useRef(0);
+  const lastReadProgressRef = useRef(0);
+  const lastReadCharOffsetRef = useRef(0);
   const selectedBookRef = useRef(selectedBook);
   const selectedChapterRef = useRef(selectedChapter);
 
@@ -100,6 +105,28 @@ function AppContent() {
     }
   }, [refresh]);
 
+  const flushReadProgressSave = useCallback(async () => {
+    if (readProgressSaveTimer.current) {
+      clearTimeout(readProgressSaveTimer.current);
+      readProgressSaveTimer.current = null;
+    }
+
+    const book = selectedBookRef.current;
+    const chapter = selectedChapterRef.current;
+    if (!book || !chapter) return;
+
+    const updated = await updateReadingProgress(
+      book.id,
+      chapter.id,
+      lastReadProgressRef.current,
+      lastReadCharOffsetRef.current,
+    );
+    if (updated) {
+      setSelectedBook(updated);
+      await refresh();
+    }
+  }, [refresh]);
+
   const handleProgressChange = useCallback(
     (progress: number, chapterId: number) => {
       const book = selectedBookRef.current;
@@ -121,6 +148,38 @@ function AppContent() {
       }, 800);
     },
     [applyBookUpdate],
+  );
+
+  const handleReadingProgressChange = useCallback(
+    (readProgress: number, chapterId: number, readCharOffset: number) => {
+      const book = selectedBookRef.current;
+      if (!book) return;
+
+      if (selectedChapterRef.current?.id === chapterId) {
+        lastReadProgressRef.current = Math.max(
+          lastReadProgressRef.current,
+          readProgress,
+        );
+        lastReadCharOffsetRef.current = Math.max(
+          lastReadCharOffsetRef.current,
+          readCharOffset,
+        );
+      }
+
+      if (readProgressSaveTimer.current) {
+        clearTimeout(readProgressSaveTimer.current);
+      }
+      readProgressSaveTimer.current = setTimeout(async () => {
+        readProgressSaveTimer.current = null;
+        await updateReadingProgress(
+          book.id,
+          chapterId,
+          lastReadProgressRef.current,
+          lastReadCharOffsetRef.current,
+        );
+      }, 1500);
+    },
+    [],
   );
 
   const handleChapterComplete = useCallback(async () => {
@@ -211,6 +270,11 @@ function AppContent() {
       speechPlayer.pause();
     }
 
+    if (screen === 'reader') {
+      await flushReadProgressSave();
+      speechPlayer.pause();
+    }
+
     setNavStack((prev) => {
       const stack = [...prev];
       const previous = stack.pop();
@@ -222,7 +286,7 @@ function AppContent() {
 
       return stack;
     });
-  }, [screen, flushProgressSave, reloadSelectedBook]);
+  }, [screen, flushProgressSave, flushReadProgressSave, reloadSelectedBook]);
 
   const openBook = useCallback(
     async (book: Book) => {
@@ -238,6 +302,62 @@ function AppContent() {
       void openChapterById(chapter.id);
     },
     [openChapterById],
+  );
+
+  const openReaderById = useCallback(
+    async (chapterId: number) => {
+      speechPlayer.pause();
+
+      const bookId = selectedBookRef.current?.id;
+      if (!bookId) return;
+
+      const fresh = await getBookById(bookId);
+      if (!fresh) return;
+
+      const chapter = await getChapterWithContent(bookId, chapterId);
+      if (!chapter) return;
+
+      lastReadProgressRef.current = chapter.readProgress ?? 0;
+      lastReadCharOffsetRef.current = chapter.readCharOffset ?? 0;
+      setSelectedBook(fresh);
+      setSelectedChapter(chapter);
+      setNavStack((prev) => [...prev, screen]);
+      setScreen('reader');
+    },
+    [screen],
+  );
+
+  const openReadChapter = useCallback(
+    (chapter: Chapter) => {
+      void openReaderById(chapter.id);
+    },
+    [openReaderById],
+  );
+
+  const goToAdjacentReaderChapter = useCallback(
+    async (direction: -1 | 1) => {
+      await flushReadProgressSave();
+
+      const book = selectedBookRef.current;
+      const chapter = selectedChapterRef.current;
+      if (!book || !chapter) return;
+
+      const fresh = await getBookById(book.id);
+      if (!fresh) return;
+
+      const idx = fresh.chapters.findIndex((c) => c.id === chapter.id);
+      const nextMeta = fresh.chapters[idx + direction];
+      if (!nextMeta) return;
+
+      const next = await getChapterWithContent(book.id, nextMeta.id);
+      if (!next) return;
+
+      lastReadProgressRef.current = next.readProgress ?? 0;
+      lastReadCharOffsetRef.current = next.readCharOffset ?? 0;
+      setSelectedBook(fresh);
+      setSelectedChapter(next);
+    },
+    [flushReadProgressSave],
   );
 
   const openResume = useCallback(async () => {
@@ -308,7 +428,26 @@ function AppContent() {
               book={selectedBook}
               onBack={goBack}
               onPlayChapter={openChapter}
+              onReadChapter={openReadChapter}
               onResume={() => void openResume()}
+            />
+          )}
+          {screen === 'reader' && selectedBook && selectedChapter && (
+            <ReaderScreen
+              key={`${selectedBook.id}-${selectedChapter.id}-reader`}
+              book={selectedBook}
+              chapter={selectedChapter}
+              onBack={() => void goBack()}
+              onReadProgressChange={handleReadingProgressChange}
+              onPrevChapter={() => void goToAdjacentReaderChapter(-1)}
+              onNextChapter={() => void goToAdjacentReaderChapter(1)}
+              canPrev={
+                selectedBook.chapters.findIndex((c) => c.id === selectedChapter.id) > 0
+              }
+              canNext={
+                selectedBook.chapters.findIndex((c) => c.id === selectedChapter.id) <
+                selectedBook.chapters.length - 1
+              }
             />
           )}
           {screen === 'player' && selectedBook && selectedChapter && (
