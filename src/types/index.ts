@@ -84,3 +84,62 @@ export class SummaryServiceError extends Error {
     this.name = 'SummaryServiceError';
   }
 }
+
+export interface RulitBookListItem {
+  id: string;
+  title: string;
+  author: string;
+  language: string;
+  year: string | null;
+  genre: string | null;
+  rating: number | null;
+  coverUrl: string | null;
+  pageUrl: string;
+  formats: string[];
+  epubSizeKb: number | null;
+}
+
+export interface RulitCatalogResponse {
+  page: number;
+  hasNext: boolean;
+  items: RulitBookListItem[];
+}
+
+export interface RulitFormatInfo {
+  type: string;
+  sizeKb: number | null;
+}
+
+export interface RulitDownloadInfo {
+  url: string;
+  fileName: string;
+}
+
+export interface RulitBookDetail extends Omit<RulitBookListItem, 'formats'> {
+  authors: string[];
+  series: string | null;
+  synopsis: string | null;
+  formats: RulitFormatInfo[];
+  download: {
+    epub?: RulitDownloadInfo;
+  };
+}
+
+export interface RulitDownloadUrlResponse {
+  bookId: string;
+  format: string;
+  url: string;
+  fileName: string;
+  resolvedUrl: string | null;
+}
+
+export class RulitServiceError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly retryable: boolean = false,
+  ) {
+    super(message);
+    this.name = 'RulitServiceError';
+  }
+}

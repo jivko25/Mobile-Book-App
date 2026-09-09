@@ -75,8 +75,17 @@ export const testIds = {
   },
   import: {
     back: 'import-back',
+    mode: (mode: string) => `import-mode-${mode}`,
     tab: (format: string) => `import-tab-${format}`,
     dropZone: 'import-drop-zone',
+  },
+  rulit: {
+    searchInput: 'rulit-search-input',
+    retry: 'rulit-retry',
+    book: (id: string) => `rulit-book-${id}`,
+    modalClose: 'rulit-modal-close',
+    modalRetry: 'rulit-modal-retry',
+    importButton: 'rulit-import-button',
   },
   summary: {
     modal: 'summary-modal',

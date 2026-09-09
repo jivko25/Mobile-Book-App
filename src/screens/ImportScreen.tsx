@@ -10,13 +10,15 @@ import {
 import { File } from 'expo-file-system';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ImportFormat, PendingImport } from '../types';
-import { Flourish, ScreenContainer } from '../components';
+import { Flourish, RulitBrowsePanel, ScreenContainer } from '../components';
 import { getRecentImports } from '../services/storage/libraryStorage';
 import {
   formatFromMime,
   formatFromName,
 } from '../services/import/importService';
 import { colors, fonts, spacing, testIds } from '../theme';
+
+type ImportMode = 'browse' | 'local';
 
 interface ImportScreenProps {
   onBack: () => void;
@@ -31,6 +33,7 @@ const MIME_TYPES: Record<ImportFormat, string[]> = {
 
 export function ImportScreen({ onBack, onFileSelected }: ImportScreenProps) {
   const insets = useSafeAreaInsets();
+  const [mode, setMode] = useState<ImportMode>('browse');
   const [tab, setTab] = useState<ImportFormat>('txt');
   const [picking, setPicking] = useState(false);
   const [recent, setRecent] = useState<
@@ -81,6 +84,65 @@ export function ImportScreen({ onBack, onFileSelected }: ImportScreenProps) {
     }
   };
 
+  const header = (
+    <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <Pressable
+        testID={testIds.import.back}
+        accessibilityRole="button"
+        accessibilityLabel="Back to library"
+        onPress={onBack}
+      >
+        <Text style={styles.backText}>← LIBRARY</Text>
+      </Pressable>
+      <Text style={styles.title}>Import a Volume</Text>
+      <Text style={styles.subtitle}>Add a new work to your collection</Text>
+    </View>
+  );
+
+  const modeTabs = (
+    <View style={styles.modeTabs}>
+      {(['browse', 'local'] as const).map((item) => (
+        <Pressable
+          key={item}
+          testID={testIds.import.mode(item)}
+          accessibilityRole="button"
+          accessibilityLabel={item === 'browse' ? 'Browse catalog' : 'Local file'}
+          accessibilityState={{ selected: mode === item }}
+          onPress={() => setMode(item)}
+          style={[styles.modeTab, mode === item && styles.modeTabActive]}
+        >
+          <Text
+            style={[
+              styles.modeTabText,
+              mode === item && styles.modeTabTextActive,
+            ]}
+          >
+            {item === 'browse' ? 'BROWSE' : 'LOCAL FILE'}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+
+  if (mode === 'browse') {
+    return (
+      <ScreenContainer testID={testIds.screen.import}>
+        <View style={styles.browseLayout}>
+          {header}
+          <View
+            style={[
+              styles.browseContent,
+              { paddingBottom: spacing.bottomNavHeight + insets.bottom + 8 },
+            ]}
+          >
+            {modeTabs}
+            <RulitBrowsePanel onImport={onFileSelected} />
+          </View>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
   return (
     <ScreenContainer testID={testIds.screen.import}>
       <ScrollView
@@ -89,20 +151,11 @@ export function ImportScreen({ onBack, onFileSelected }: ImportScreenProps) {
           paddingBottom: spacing.bottomNavHeight + insets.bottom + 20,
         }}
       >
-        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-          <Pressable
-            testID={testIds.import.back}
-            accessibilityRole="button"
-            accessibilityLabel="Back to library"
-            onPress={onBack}
-          >
-            <Text style={styles.backText}>← LIBRARY</Text>
-          </Pressable>
-          <Text style={styles.title}>Import a Volume</Text>
-          <Text style={styles.subtitle}>Add a new work to your collection</Text>
-        </View>
+        {header}
 
         <View style={styles.content}>
+          {modeTabs}
+
           <View style={styles.tabs}>
             {(['txt', 'epub', 'pdf'] as const).map((format) => (
               <Pressable
@@ -163,6 +216,14 @@ export function ImportScreen({ onBack, onFileSelected }: ImportScreenProps) {
 }
 
 const styles = StyleSheet.create({
+  browseLayout: {
+    flex: 1,
+  },
+  browseContent: {
+    flex: 1,
+    paddingHorizontal: spacing.screenPadding,
+    paddingTop: 16,
+  },
   header: {
     paddingHorizontal: spacing.screenPadding,
     paddingBottom: 18,
@@ -191,7 +252,31 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.screenPadding,
-    paddingTop: 20,
+    paddingTop: 16,
+  },
+  modeTabs: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  modeTab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.goldBorder,
+  },
+  modeTabActive: {
+    backgroundColor: colors.burgundy,
+  },
+  modeTabText: {
+    fontFamily: fonts.cinzelRegular,
+    color: colors.brown,
+    fontSize: 9,
+    letterSpacing: 1.5,
+  },
+  modeTabTextActive: {
+    color: colors.parchment,
   },
   tabs: {
     flexDirection: 'row',
