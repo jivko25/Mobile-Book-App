@@ -55,6 +55,8 @@ export interface Book {
   fileUri: string;
   fileFormat: ImportFormat;
   importedAt: string;
+  /** Stable dedup key — Rulit id or normalized title/author/format */
+  sourceKey?: string | null;
 }
 
 export interface PendingImport {
@@ -63,6 +65,18 @@ export interface PendingImport {
   fileName: string;
   /** Remote cover URL (e.g. from Rulit) — saved locally on import */
   coverUrl?: string | null;
+  /** Pre-assigned dedup key (e.g. Rulit catalog id) */
+  sourceKey?: string | null;
+}
+
+export class DuplicateImportError extends Error {
+  constructor(
+    message: string,
+    public readonly existingTitle: string,
+  ) {
+    super(message);
+    this.name = 'DuplicateImportError';
+  }
 }
 
 export interface ParsedChapter {

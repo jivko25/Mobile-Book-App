@@ -1,6 +1,7 @@
 import { File, Paths } from 'expo-file-system';
 import {
   Book,
+  DuplicateImportError,
   ImportFormat,
   ParsedBook,
   ParsedCoverImage,
@@ -9,8 +10,10 @@ import {
 import { applyPaletteIndex } from '../../theme/bookPalettes';
 import {
   addBook,
+  buildLocalSourceKey,
   estimateDuration,
   estimateTotalDuration,
+  findDuplicateBook,
   getNextBookPaletteIndex,
   toRomanNumeral,
   writeBookCover,
@@ -193,12 +196,46 @@ async function persistBookCover(
   return null;
 }
 
+async function ensureUniqueImport(
+  pending: PendingImport,
+  parsed?: ParsedBook,
+): Promise<void> {
+  if (pending.sourceKey) {
+    const existing = await findDuplicateBook({ sourceKey: pending.sourceKey });
+    if (existing) {
+      throw new DuplicateImportError(
+        `"${existing.title}" is already in your library.`,
+        existing.title,
+      );
+    }
+  }
+
+  if (parsed) {
+    const sourceKey =
+      pending.sourceKey ??
+      buildLocalSourceKey(parsed.title, parsed.author, pending.format);
+    const existing = await findDuplicateBook({
+      sourceKey,
+      title: parsed.title,
+      author: parsed.author,
+      format: pending.format,
+    });
+    if (existing) {
+      throw new DuplicateImportError(
+        `"${existing.title}" is already in your library.`,
+        existing.title,
+      );
+    }
+  }
+}
+
 function parsedToBook(
   parsed: ParsedBook,
   pending: PendingImport,
   paletteIndex: number,
   bookId: string,
   coverUri: string | null,
+  sourceKey: string,
 ): Book {
   const palette = applyPaletteIndex(paletteIndex);
   const importedAt = new Date().toISOString();
@@ -232,6 +269,7 @@ function parsedToBook(
     fileUri: pending.uri,
     fileFormat: pending.format,
     importedAt,
+    sourceKey,
   };
 }
 
@@ -239,6 +277,8 @@ export async function importVolume(
   pending: PendingImport,
   onStep?: (step: ImportStep) => void,
 ): Promise<Book> {
+  await ensureUniqueImport(pending);
+
   onStep?.('reading');
   const file = await openImportFile(pending.uri, pending.fileName);
 
@@ -250,6 +290,12 @@ export async function importVolume(
     throw new Error('No chapters could be extracted from this file.');
   }
 
+  await ensureUniqueImport(pending, parsed);
+
+  const sourceKey =
+    pending.sourceKey ??
+    buildLocalSourceKey(parsed.title, parsed.author, pending.format);
+
   onStep?.('saving');
   const bookId = generateBookId();
   const coverUri = await persistBookCover(
@@ -258,7 +304,14 @@ export async function importVolume(
     pending.coverUrl,
   );
   const paletteIndex = await getNextBookPaletteIndex();
-  const book = parsedToBook(parsed, pending, paletteIndex, bookId, coverUri);
+  const book = parsedToBook(
+    parsed,
+    pending,
+    paletteIndex,
+    bookId,
+    coverUri,
+    sourceKey,
+  );
   try {
     await addBook(book);
   } catch (error) {

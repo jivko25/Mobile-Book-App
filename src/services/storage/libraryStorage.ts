@@ -39,6 +39,18 @@ function withResolvedPalette(
   };
 }
 
+async function migrateSourceKeys(): Promise<void> {
+  const ids = await loadBookIds();
+  for (const id of ids) {
+    const meta = await loadBookMetaRaw(id);
+    if (!meta || meta.sourceKey) continue;
+    await saveBookMeta({
+      ...meta,
+      sourceKey: buildLocalSourceKey(meta.title, meta.author, meta.fileFormat),
+    });
+  }
+}
+
 async function migrateBookPalettes(): Promise<void> {
   const ids = await loadBookIds();
   for (let i = 0; i < ids.length; i++) {
@@ -59,6 +71,59 @@ async function migrateBookPalettes(): Promise<void> {
 export async function getNextBookPaletteIndex(): Promise<number> {
   const ids = await loadBookIds();
   return ids.length;
+}
+
+function normalizeSourcePart(text: string): string {
+  return text.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+export function buildLocalSourceKey(
+  title: string,
+  author: string,
+  format: ImportFormat,
+): string {
+  return `local:${normalizeSourcePart(title)}::${normalizeSourcePart(author)}::${format}`;
+}
+
+export function buildRulitSourceKey(rulitBookId: string): string {
+  return `rulit:${rulitBookId}`;
+}
+
+export async function findDuplicateBook(options: {
+  sourceKey?: string | null;
+  title?: string;
+  author?: string;
+  format?: ImportFormat;
+}): Promise<StoredBook | null> {
+  const books = await loadStoredBooks();
+
+  if (options.sourceKey) {
+    const byKey = books.find((b) => b.sourceKey === options.sourceKey);
+    if (byKey) return byKey;
+  }
+
+  if (options.title && options.author && options.format) {
+    const localKey = buildLocalSourceKey(
+      options.title,
+      options.author,
+      options.format,
+    );
+    const byLocalKey = books.find((b) => b.sourceKey === localKey);
+    if (byLocalKey) return byLocalKey;
+
+    const normTitle = normalizeSourcePart(options.title);
+    const normAuthor = normalizeSourcePart(options.author);
+    const legacyMatch = books.find(
+      (b) =>
+        !b.sourceKey &&
+        normalizeSourcePart(b.title) === normTitle &&
+        normalizeSourcePart(b.author) === normAuthor &&
+        b.fileFormat === options.format,
+    );
+    if (legacyMatch) return legacyMatch;
+  }
+
+  return null;
 }
 
 export function toRomanNumeral(n: number): string {
@@ -325,6 +390,7 @@ async function ensureMigration(): Promise<void> {
   migrationDone = true;
   await migrateLegacyMonolithicKeys();
   await migrateBookPalettes();
+  await migrateSourceKeys();
 }
 
 async function loadStoredBooks(): Promise<StoredBook[]> {

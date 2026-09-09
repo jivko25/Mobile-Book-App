@@ -13,7 +13,13 @@ import {
   Lora_400Regular_Italic,
   Lora_500Medium,
 } from '@expo-google-fonts/lora';
-import { Screen, Book, Chapter, PendingImport } from './src/types';
+import {
+  Screen,
+  Book,
+  Chapter,
+  PendingImport,
+  DuplicateImportError,
+} from './src/types';
 import { BottomNav, SummaryModal } from './src/components';
 import { LibraryProvider, useLibrary } from './src/context/LibraryContext';
 import {
@@ -398,9 +404,12 @@ function AppContent() {
     [refresh],
   );
 
-  const handleImportError = useCallback((message: string) => {
+  const handleImportError = useCallback((error: unknown) => {
     setPendingImport(null);
-    Alert.alert('Import failed', message, [
+    const isDuplicate = error instanceof DuplicateImportError;
+    const message =
+      error instanceof Error ? error.message : 'Import failed.';
+    Alert.alert(isDuplicate ? 'Already in library' : 'Import failed', message, [
       { text: 'OK', onPress: () => setScreen('import') },
     ]);
   }, []);

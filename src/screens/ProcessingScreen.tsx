@@ -12,7 +12,7 @@ import { colors, fonts, testIds } from '../theme';
 interface ProcessingScreenProps {
   pending: PendingImport;
   onComplete: (book: Book) => void;
-  onError: (message: string) => void;
+  onError: (error: unknown) => void;
 }
 
 const STEP_ORDER: ImportStep[] = ['reading', 'parsing', 'chapters', 'saving', 'done'];
@@ -39,8 +39,8 @@ export function ProcessingScreen({
         setInkPct(100);
         setTimeout(() => onComplete(book), 800);
       })
-      .catch((err: Error) => {
-        onError(err.message ?? 'Import failed.');
+      .catch((err: unknown) => {
+        onError(err);
       });
   }, [pending, onComplete, onError]);
 

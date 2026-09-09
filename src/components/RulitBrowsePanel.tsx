@@ -18,6 +18,10 @@ import {
   getRulitDownloadUrl,
   searchRulitBooks,
 } from '../services/rulitService';
+import {
+  buildRulitSourceKey,
+  findDuplicateBook,
+} from '../services/storage/libraryStorage';
 import { colors, fonts, testIds } from '../theme';
 
 interface RulitBrowsePanelProps {
@@ -122,6 +126,14 @@ export function RulitBrowsePanel({ onImport }: RulitBrowsePanelProps) {
 
     setImporting(true);
     try {
+      const sourceKey = buildRulitSourceKey(detail.id);
+      const existing = await findDuplicateBook({ sourceKey });
+      if (existing) {
+        setDetailError(`"${existing.title}" is already in your library.`);
+        setImporting(false);
+        return;
+      }
+
       const download = await getRulitDownloadUrl(detail.id, true);
       const uri = download.resolvedUrl ?? download.url;
 
@@ -130,6 +142,7 @@ export function RulitBrowsePanel({ onImport }: RulitBrowsePanelProps) {
         format: 'epub',
         fileName: download.fileName || `${detail.title}.epub`,
         coverUrl: detail.coverUrl,
+        sourceKey,
       });
       closeModal();
     } catch (err) {
