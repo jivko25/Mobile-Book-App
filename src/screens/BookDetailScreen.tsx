@@ -61,7 +61,7 @@ export function BookDetailScreen({
 
         <View style={styles.content}>
           <View style={styles.titleBlock}>
-            <Text style={styles.genre}>
+            <Text style={[styles.genre, { color: book.accent }]}>
               {book.genre.toUpperCase()} · {book.year}
             </Text>
             <Text style={styles.title}>{book.title}</Text>
@@ -75,7 +75,7 @@ export function BookDetailScreen({
 
           {book.progress > 0 && (
             <View style={styles.progressBlock}>
-              <InkProgress pct={book.progress} height={3} />
+              <InkProgress pct={book.progress} height={3} color={book.accent} />
               <View style={styles.progressRow}>
                 <Text style={styles.progressLabel}>{book.progress}% heard</Text>
                 <Text style={styles.progressLabel}>{book.totalDuration} total</Text>
@@ -90,7 +90,13 @@ export function BookDetailScreen({
               book.progress > 0 ? 'Resume listening' : 'Begin this volume'
             }
             onPress={onResume}
-            style={styles.cta}
+            style={[
+              styles.cta,
+              {
+                backgroundColor: book.accent,
+                borderColor: `${book.accent}cc`,
+              },
+            ]}
           >
             <Text style={styles.ctaText}>
               {book.progress > 0 ? '▶  RESUME LISTENING' : '▶  BEGIN THIS VOLUME'}
@@ -101,19 +107,36 @@ export function BookDetailScreen({
           <Text style={styles.synopsis}>{book.synopsis}</Text>
           <Flourish />
 
-          <Text style={styles.chaptersLabel}>ACTS & CHAPTERS</Text>
+          <Text style={[styles.chaptersLabel, { color: book.accent }]}>
+            ACTS & CHAPTERS
+          </Text>
           {book.chapters.map((ch) => (
-            <View key={ch.id} style={styles.chapterRow}>
+            <View
+              key={ch.id}
+              style={[styles.chapterRow, { borderBottomColor: `${book.accent}22` }]}
+            >
               <View
                 style={[
                   styles.chapterBadge,
-                  ch.progress === 100 && styles.chapterBadgeComplete,
-                  ch.progress > 0 && ch.progress < 100 && styles.chapterBadgeActive,
+                  {
+                    borderColor: `${book.accent}40`,
+                    backgroundColor: `${book.accent}12`,
+                  },
+                  ch.progress === 100 && {
+                    backgroundColor: book.accent,
+                    borderColor: `${book.accent}cc`,
+                  },
+                  ch.progress > 0 &&
+                    ch.progress < 100 && {
+                      backgroundColor: book.accent,
+                      borderColor: `${book.accent}cc`,
+                    },
                 ]}
               >
                 <Text
                   style={[
                     styles.chapterNumeral,
+                    { color: book.accent },
                     ch.progress > 0 && styles.chapterNumeralActive,
                   ]}
                 >
@@ -125,22 +148,28 @@ export function BookDetailScreen({
                 <Text style={styles.chapterDuration}>{ch.duration}</Text>
                 {ch.progress > 0 && ch.progress < 100 && (
                   <View style={styles.chapterProgress}>
-                    <Text style={styles.progressKind}>Heard</Text>
-                    <InkProgress pct={ch.progress} height={2} />
+                    <Text style={[styles.progressKind, { color: book.accent }]}>
+                      Heard
+                    </Text>
+                    <InkProgress pct={ch.progress} height={2} color={book.accent} />
                   </View>
                 )}
                 {(ch.readProgress ?? 0) > 0 && (ch.readProgress ?? 0) < 100 && (
                   <View style={styles.chapterProgress}>
-                    <Text style={styles.progressKind}>Read</Text>
+                    <Text style={[styles.progressKind, { color: `${book.accent}99` }]}>
+                      Read
+                    </Text>
                     <InkProgress
                       pct={ch.readProgress ?? 0}
                       height={2}
-                      color={colors.brown}
+                      color={`${book.accent}88`}
                     />
                   </View>
                 )}
                 {(ch.readProgress ?? 0) === 100 && (
-                  <Text style={styles.readComplete}>Read complete</Text>
+                  <Text style={[styles.readComplete, { color: book.accent }]}>
+                    Read complete
+                  </Text>
                 )}
               </View>
               <View style={styles.chapterActions}>
@@ -149,9 +178,17 @@ export function BookDetailScreen({
                   accessibilityRole="button"
                   accessibilityLabel={`Read ${ch.title}`}
                   onPress={() => onReadChapter(ch)}
-                  style={styles.readButton}
+                  style={[
+                    styles.readButton,
+                    {
+                      borderColor: `${book.accent}55`,
+                      backgroundColor: `${book.accent}10`,
+                    },
+                  ]}
                 >
-                  <Text style={styles.readButtonText}>READ</Text>
+                  <Text style={[styles.readButtonText, { color: book.accent }]}>
+                    READ
+                  </Text>
                 </Pressable>
                 <Pressable
                   testID={testIds.detail.chapter(ch.id)}
@@ -161,10 +198,20 @@ export function BookDetailScreen({
                   style={styles.playIcon}
                 >
                   {ch.progress === 100 ? (
-                    <Text style={styles.replayIcon}>↺</Text>
+                    <Text style={[styles.replayIcon, { color: book.accent }]}>↺</Text>
                   ) : (
-                    <View style={styles.playCircle}>
-                      <Text style={styles.playTriangle}>▶</Text>
+                    <View
+                      style={[
+                        styles.playCircle,
+                        {
+                          borderColor: `${book.accent}50`,
+                          backgroundColor: `${book.accent}12`,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.playTriangle, { color: book.accent }]}>
+                        ▶
+                      </Text>
                     </View>
                   )}
                 </Pressable>
@@ -256,9 +303,7 @@ const styles = StyleSheet.create({
   cta: {
     width: '100%',
     paddingVertical: 13,
-    backgroundColor: colors.burgundy,
     borderWidth: 1,
-    borderColor: colors.burgundyLight,
     alignItems: 'center',
     marginBottom: 4,
   },
@@ -278,7 +323,6 @@ const styles = StyleSheet.create({
   },
   chaptersLabel: {
     fontFamily: fonts.cinzelRegular,
-    color: colors.burgundy,
     fontSize: 9,
     letterSpacing: 2,
     marginTop: 18,
@@ -290,7 +334,6 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: colors.goldBorderLight,
   },
   chapterBadge: {
     width: 34,
@@ -298,23 +341,12 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.goldBg,
     borderWidth: 1,
-    borderColor: 'rgba(196,168,130,0.38)',
-  },
-  chapterBadgeActive: {
-    backgroundColor: colors.burgundy,
-    borderColor: colors.burgundyLight,
-  },
-  chapterBadgeComplete: {
-    backgroundColor: colors.green,
-    borderColor: colors.greenLight,
   },
   chapterNumeral: {
     fontFamily: fonts.cinzel,
     fontSize: 11,
     fontWeight: '600',
-    color: colors.brown,
   },
   chapterNumeralActive: {
     color: colors.parchment,
@@ -356,8 +388,6 @@ const styles = StyleSheet.create({
   },
   readButton: {
     borderWidth: 1,
-    borderColor: 'rgba(139,64,64,0.35)',
-    backgroundColor: colors.goldBg,
     paddingHorizontal: 8,
     paddingVertical: 7,
     borderRadius: 2,
@@ -366,13 +396,11 @@ const styles = StyleSheet.create({
     fontFamily: fonts.cinzelRegular,
     fontSize: 8,
     letterSpacing: 1.2,
-    color: colors.burgundy,
   },
   playIcon: {
     flexShrink: 0,
   },
   replayIcon: {
-    color: colors.green,
     fontSize: 16,
   },
   playCircle: {
@@ -381,12 +409,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.goldBg,
     borderWidth: 1,
-    borderColor: 'rgba(196,168,130,0.38)',
   },
   playTriangle: {
-    color: colors.burgundy,
     fontSize: 10,
     marginLeft: 2,
   },

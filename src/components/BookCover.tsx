@@ -37,7 +37,7 @@ export function BookCover({ book, width, height, testID }: BookCoverProps) {
         style={[styles.spine, { width: spineWidth }]}
       />
 
-      <View style={styles.frame}>
+      <View style={[styles.frame, { borderColor: `${book.accent}44` }]}>
         <Text style={[styles.ornament, { color: book.accent, fontSize: topOrnamentSize }]}>
           ✦
         </Text>
@@ -102,7 +102,6 @@ const styles = StyleSheet.create({
     right: '8%',
     bottom: '8%',
     borderWidth: 1,
-    borderColor: 'rgba(201,168,76,0.27)',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: '8%',

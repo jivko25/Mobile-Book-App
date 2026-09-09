@@ -35,6 +35,8 @@ export interface Book {
   genre: string;
   bg: string;
   accent: string;
+  /** Stable palette slot (0–9) — drives cover and in-book theme */
+  paletteIndex: number;
   progress: number;
   totalDuration: string;
   lastChapterId?: number;

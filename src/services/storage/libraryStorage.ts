@@ -1,19 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Directory, File, Paths } from 'expo-file-system';
 import { Book, Chapter, ImportFormat } from '../../types';
+import { pickPaletteByIndex } from '../../theme/bookPalettes';
 
 const BOOK_IDS_KEY = '@folio/library-ids';
 const LEGACY_KEYS = ['@folio/library-index-v2', '@folio/library'];
 const LIBRARY_DIR = 'shakes-pear-library';
-
-const PALETTES = [
-  { bg: '#2C1810', accent: '#C9A84C' },
-  { bg: '#1A2818', accent: '#A04040' },
-  { bg: '#1B2D3D', accent: '#6B9FB8' },
-  { bg: '#2A1F3D', accent: '#9B7DC4' },
-  { bg: '#1F2A1A', accent: '#8B7355' },
-  { bg: '#2D1F1F', accent: '#C4785A' },
-];
 
 type StoredChapter = Omit<Chapter, 'content'>;
 type StoredBook = Omit<Book, 'chapters'> & { chapters: StoredChapter[] };
@@ -29,7 +21,44 @@ export function pickPalette(seed: string) {
   for (let i = 0; i < seed.length; i++) {
     hash = seed.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return PALETTES[Math.abs(hash) % PALETTES.length];
+  return pickPaletteByIndex(Math.abs(hash));
+}
+
+function withResolvedPalette(
+  book: StoredBook,
+  fallbackIndex: number,
+): StoredBook {
+  const paletteIndex =
+    typeof book.paletteIndex === 'number' ? book.paletteIndex : fallbackIndex;
+  const palette = pickPaletteByIndex(paletteIndex);
+  return {
+    ...book,
+    paletteIndex,
+    bg: palette.bg,
+    accent: palette.accent,
+  };
+}
+
+async function migrateBookPalettes(): Promise<void> {
+  const ids = await loadBookIds();
+  for (let i = 0; i < ids.length; i++) {
+    const meta = await loadBookMetaRaw(ids[i]);
+    if (!meta) continue;
+
+    const resolved = withResolvedPalette(meta, i);
+    if (
+      meta.paletteIndex !== resolved.paletteIndex ||
+      meta.bg !== resolved.bg ||
+      meta.accent !== resolved.accent
+    ) {
+      await saveBookMeta(resolved);
+    }
+  }
+}
+
+export async function getNextBookPaletteIndex(): Promise<number> {
+  const ids = await loadBookIds();
+  return ids.length;
 }
 
 export function toRomanNumeral(n: number): string {
@@ -188,7 +217,7 @@ async function saveBookMeta(stored: StoredBook): Promise<void> {
   await safeSetItem(bookMetaKey(stored.id), JSON.stringify(stored));
 }
 
-async function loadBookMeta(bookId: string): Promise<StoredBook | null> {
+async function loadBookMetaRaw(bookId: string): Promise<StoredBook | null> {
   const raw = await safeGetItem(bookMetaKey(bookId));
   if (!raw) return null;
 
@@ -221,6 +250,10 @@ async function loadBookMeta(bookId: string): Promise<StoredBook | null> {
     await safeRemoveItem(bookMetaKey(bookId));
     return null;
   }
+}
+
+async function loadBookMeta(bookId: string): Promise<StoredBook | null> {
+  return loadBookMetaRaw(bookId);
 }
 
 async function migrateLegacyMonolithicKeys(): Promise<void> {
@@ -263,6 +296,7 @@ async function ensureMigration(): Promise<void> {
   if (migrationDone) return;
   migrationDone = true;
   await migrateLegacyMonolithicKeys();
+  await migrateBookPalettes();
 }
 
 async function loadStoredBooks(): Promise<StoredBook[]> {
@@ -271,9 +305,9 @@ async function loadStoredBooks(): Promise<StoredBook[]> {
   const ids = await loadBookIds();
   const books: StoredBook[] = [];
 
-  for (const id of ids) {
-    const meta = await loadBookMeta(id);
-    if (meta) books.push(meta);
+  for (let i = 0; i < ids.length; i++) {
+    const meta = await loadBookMeta(ids[i]);
+    if (meta) books.push(withResolvedPalette(meta, i));
   }
 
   return books;
@@ -314,8 +348,11 @@ export async function getRecentImports(limit = 5): Promise<
 }
 
 export async function getBookById(bookId: string): Promise<Book | null> {
+  const ids = await loadBookIds();
+  const index = ids.indexOf(bookId);
   const stored = await loadBookMeta(bookId);
-  return stored ? stripContent(stored) : null;
+  if (!stored) return null;
+  return stripContent(withResolvedPalette(stored, Math.max(0, index)));
 }
 
 export async function getChapterWithContent(

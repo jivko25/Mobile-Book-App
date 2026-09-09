@@ -5,11 +5,12 @@ import {
   ParsedBook,
   PendingImport,
 } from '../../types';
+import { applyPaletteIndex } from '../../theme/bookPalettes';
 import {
   addBook,
   estimateDuration,
   estimateTotalDuration,
-  pickPalette,
+  getNextBookPaletteIndex,
   toRomanNumeral,
 } from '../storage/libraryStorage';
 import { parseTxt } from './parsers/txtParser';
@@ -150,8 +151,9 @@ async function parseImportFile(
 function parsedToBook(
   parsed: ParsedBook,
   pending: PendingImport,
+  paletteIndex: number,
 ): Book {
-  const palette = pickPalette(parsed.title);
+  const palette = applyPaletteIndex(paletteIndex);
   const importedAt = new Date().toISOString();
 
   const chapters = parsed.chapters.map((ch, i) => ({
@@ -174,6 +176,7 @@ function parsedToBook(
     genre: 'Imported',
     bg: palette.bg,
     accent: palette.accent,
+    paletteIndex: palette.paletteIndex,
     progress: 0,
     totalDuration: estimateTotalDuration(parsed.chapters),
     synopsis: parsed.synopsis,
@@ -200,7 +203,8 @@ export async function importVolume(
   }
 
   onStep?.('saving');
-  const book = parsedToBook(parsed, pending);
+  const paletteIndex = await getNextBookPaletteIndex();
+  const book = parsedToBook(parsed, pending, paletteIndex);
   try {
     await addBook(book);
   } catch (error) {

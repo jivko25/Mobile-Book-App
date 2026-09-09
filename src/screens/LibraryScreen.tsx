@@ -63,7 +63,13 @@ export function LibraryScreen({ books, onSelect }: LibraryScreenProps) {
                 accessibilityRole="button"
                 accessibilityLabel={`Continue reading ${lastRead.title}`}
                 onPress={() => onSelect(lastRead)}
-                style={styles.continueCard}
+                style={[
+                  styles.continueCard,
+                  {
+                    backgroundColor: `${lastRead.accent}14`,
+                    borderColor: `${lastRead.accent}55`,
+                  },
+                ]}
               >
                 <BookCover book={lastRead} width={52} height={76} />
                 <View style={styles.continueInfo}>
@@ -77,10 +83,12 @@ export function LibraryScreen({ books, onSelect }: LibraryScreenProps) {
                     )}
                   </View>
                   <View>
-                    <InkProgress pct={lastRead.progress} height={3} />
+                    <InkProgress pct={lastRead.progress} height={3} color={lastRead.accent} />
                     <View style={styles.continueFooter}>
                       <Text style={styles.progressText}>{lastRead.progress}% heard</Text>
-                      <Text style={styles.resumeText}>RESUME →</Text>
+                      <Text style={[styles.resumeText, { color: lastRead.accent }]}>
+                        RESUME →
+                      </Text>
                     </View>
                   </View>
                 </View>
@@ -103,20 +111,20 @@ export function LibraryScreen({ books, onSelect }: LibraryScreenProps) {
               >
                 <BookCover book={book} width={cardWidth} height={cardWidth * 1.43} />
                 <View style={styles.bookMeta}>
-                  <Text style={styles.bookTitle} numberOfLines={2}>
+                  <Text style={[styles.bookTitle, { color: book.accent }]} numberOfLines={2}>
                     {book.title}
                   </Text>
                   <Text style={styles.bookAuthor}>{book.author}</Text>
                   {book.progress > 0 && book.progress < 100 && (
                     <View style={styles.bookProgress}>
-                      <InkProgress pct={book.progress} height={2} />
+                      <InkProgress pct={book.progress} height={2} color={book.accent} />
                     </View>
                   )}
                   {book.progress === 0 && (
-                    <Text style={styles.unread}>Unread</Text>
+                    <Text style={[styles.unread, { color: book.accent }]}>Unread</Text>
                   )}
                   {book.progress === 100 && (
-                    <Text style={styles.complete}>✓ Complete</Text>
+                    <Text style={[styles.complete, { color: book.accent }]}>✓ Complete</Text>
                   )}
                 </View>
               </Pressable>
@@ -176,9 +184,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 14,
     padding: 14,
-    backgroundColor: colors.goldBg,
     borderWidth: 1,
-    borderColor: colors.goldBorder,
     borderRadius: 2,
   },
   continueInfo: {
@@ -216,7 +222,6 @@ const styles = StyleSheet.create({
   },
   resumeText: {
     fontFamily: fonts.cinzelRegular,
-    color: colors.burgundy,
     fontSize: 9,
     letterSpacing: 1.5,
   },
@@ -257,7 +262,6 @@ const styles = StyleSheet.create({
   },
   complete: {
     fontFamily: fonts.lora,
-    color: colors.green,
     fontSize: 10,
     marginTop: 5,
   },
