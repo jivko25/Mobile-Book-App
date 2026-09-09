@@ -3,6 +3,7 @@ import {
   Book,
   ImportFormat,
   ParsedBook,
+  ParsedCoverImage,
   PendingImport,
 } from '../../types';
 import { applyPaletteIndex } from '../../theme/bookPalettes';
@@ -12,6 +13,7 @@ import {
   estimateTotalDuration,
   getNextBookPaletteIndex,
   toRomanNumeral,
+  writeBookCover,
 } from '../storage/libraryStorage';
 import { parseTxt } from './parsers/txtParser';
 import { parseEpub } from './parsers/epubParser';
@@ -148,10 +150,55 @@ async function parseImportFile(
   }
 }
 
+function generateBookId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function extensionFromContentType(contentType: string): string {
+  const lower = contentType.toLowerCase();
+  if (lower.includes('png')) return 'png';
+  if (lower.includes('webp')) return 'webp';
+  if (lower.includes('gif')) return 'gif';
+  return 'jpg';
+}
+
+async function persistBookCover(
+  bookId: string,
+  embedded?: ParsedCoverImage | null,
+  remoteUrl?: string | null,
+): Promise<string | null> {
+  if (remoteUrl) {
+    try {
+      const response = await fetch(remoteUrl);
+      if (response.ok) {
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        if (bytes.length >= 64) {
+          const ext = extensionFromContentType(response.headers.get('content-type') ?? '');
+          return writeBookCover(bookId, bytes, ext);
+        }
+      }
+    } catch {
+      // Fall back to embedded EPUB cover below.
+    }
+  }
+
+  if (embedded) {
+    try {
+      return writeBookCover(bookId, embedded.bytes, embedded.extension);
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
 function parsedToBook(
   parsed: ParsedBook,
   pending: PendingImport,
   paletteIndex: number,
+  bookId: string,
+  coverUri: string | null,
 ): Book {
   const palette = applyPaletteIndex(paletteIndex);
   const importedAt = new Date().toISOString();
@@ -168,7 +215,7 @@ function parsedToBook(
   }));
 
   return {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    id: bookId,
     title: parsed.title,
     author: parsed.author,
     narrator: 'Системен глас',
@@ -177,6 +224,7 @@ function parsedToBook(
     bg: palette.bg,
     accent: palette.accent,
     paletteIndex: palette.paletteIndex,
+    coverUri,
     progress: 0,
     totalDuration: estimateTotalDuration(parsed.chapters),
     synopsis: parsed.synopsis,
@@ -203,8 +251,14 @@ export async function importVolume(
   }
 
   onStep?.('saving');
+  const bookId = generateBookId();
+  const coverUri = await persistBookCover(
+    bookId,
+    parsed.coverImage,
+    pending.coverUrl,
+  );
   const paletteIndex = await getNextBookPaletteIndex();
-  const book = parsedToBook(parsed, pending, paletteIndex);
+  const book = parsedToBook(parsed, pending, paletteIndex, bookId, coverUri);
   try {
     await addBook(book);
   } catch (error) {

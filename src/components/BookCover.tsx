@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Book } from '../types';
 import { fonts } from '../theme';
@@ -17,6 +17,37 @@ export function BookCover({ book, width, height, testID }: BookCoverProps) {
   const authorSize = Math.max(5, width * 0.055);
   const ornamentSize = Math.max(5, width * 0.065);
   const topOrnamentSize = Math.max(6, width * 0.09);
+
+  if (book.coverUri) {
+    return (
+      <View
+        testID={testID}
+        style={[
+          styles.cover,
+          {
+            width,
+            height,
+            backgroundColor: book.bg,
+          },
+        ]}
+      >
+        <Image
+          source={{ uri: book.coverUri }}
+          style={styles.coverImage}
+          resizeMode="cover"
+        />
+        <LinearGradient
+          colors={['rgba(0,0,0,0.18)', 'transparent', 'rgba(255,255,255,0.06)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+        <View style={[styles.imageSpine, { width: spineWidth }]} pointerEvents="none" />
+        <View style={styles.sheen} pointerEvents="none" />
+      </View>
+    );
+  }
 
   return (
     <View
@@ -88,6 +119,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.45,
     shadowRadius: 20,
     elevation: 8,
+  },
+  coverImage: {
+    ...StyleSheet.absoluteFill,
+    width: '100%',
+    height: '100%',
+  },
+  imageSpine: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.22)',
   },
   spine: {
     position: 'absolute',

@@ -25,6 +25,11 @@ export interface Chapter {
   content: string;
 }
 
+export interface ParsedCoverImage {
+  bytes: Uint8Array;
+  extension: string;
+}
+
 export interface Book {
   id: string;
   title: string;
@@ -37,6 +42,8 @@ export interface Book {
   accent: string;
   /** Stable palette slot (0–9) — drives cover and in-book theme */
   paletteIndex: number;
+  /** Local file URI for imported cover art, when available */
+  coverUri?: string | null;
   progress: number;
   totalDuration: string;
   lastChapterId?: number;
@@ -54,6 +61,8 @@ export interface PendingImport {
   uri: string;
   format: ImportFormat;
   fileName: string;
+  /** Remote cover URL (e.g. from Rulit) — saved locally on import */
+  coverUrl?: string | null;
 }
 
 export interface ParsedChapter {
@@ -66,6 +75,7 @@ export interface ParsedBook {
   author: string;
   synopsis: string;
   chapters: ParsedChapter[];
+  coverImage?: ParsedCoverImage | null;
 }
 
 export interface SummaryRequest {

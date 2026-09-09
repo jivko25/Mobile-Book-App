@@ -131,6 +131,34 @@ function getChapterFile(bookId: string, chapterId: number): File {
   return new File(getBookDirectory(bookId), `chapter-${chapterId}.txt`);
 }
 
+const COVER_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'] as const;
+
+export function resolveBookCoverUri(bookId: string): string | null {
+  for (const ext of COVER_EXTENSIONS) {
+    const file = new File(getBookDirectory(bookId), `cover.${ext}`);
+    if (file.exists) return file.uri;
+  }
+  return null;
+}
+
+export function writeBookCover(
+  bookId: string,
+  bytes: Uint8Array,
+  extension: string,
+): string {
+  const safeExt = extension.replace(/^\./, '').toLowerCase() || 'jpg';
+  const file = new File(getBookDirectory(bookId), `cover.${safeExt}`);
+  file.create({ overwrite: true });
+  file.write(bytes);
+  return file.uri;
+}
+
+function withCoverUri(book: StoredBook): StoredBook {
+  if (book.coverUri) return book;
+  const uri = resolveBookCoverUri(book.id);
+  return uri ? { ...book, coverUri: uri } : book;
+}
+
 function writeChapterContent(
   bookId: string,
   chapterId: number,
@@ -307,7 +335,7 @@ async function loadStoredBooks(): Promise<StoredBook[]> {
 
   for (let i = 0; i < ids.length; i++) {
     const meta = await loadBookMeta(ids[i]);
-    if (meta) books.push(withResolvedPalette(meta, i));
+    if (meta) books.push(withCoverUri(withResolvedPalette(meta, i)));
   }
 
   return books;
@@ -352,7 +380,9 @@ export async function getBookById(bookId: string): Promise<Book | null> {
   const index = ids.indexOf(bookId);
   const stored = await loadBookMeta(bookId);
   if (!stored) return null;
-  return stripContent(withResolvedPalette(stored, Math.max(0, index)));
+  return stripContent(
+    withCoverUri(withResolvedPalette(stored, Math.max(0, index))),
+  );
 }
 
 export async function getChapterWithContent(

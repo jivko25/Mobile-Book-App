@@ -129,6 +129,7 @@ export function RulitBrowsePanel({ onImport }: RulitBrowsePanelProps) {
         uri,
         format: 'epub',
         fileName: download.fileName || `${detail.title}.epub`,
+        coverUrl: detail.coverUrl,
       });
       closeModal();
     } catch (err) {
