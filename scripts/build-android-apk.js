@@ -1,21 +1,37 @@
 #!/usr/bin/env node
 /**
  * Windows-compatible local Android APK build.
- * EAS `build --local` requires macOS/Linux; this uses Gradle directly.
  *
- * Output: android/app/build/outputs/apk/release/app-release.apk
- * Debug:  android/app/build/outputs/apk/debug/app-debug.apk
+ * Default: reuses existing android/ (no expo prebuild) — avoids Windows EBUSY locks.
+ * Use --fresh to regenerate native project from scratch.
+ *
+ * Flags:
+ *   --fresh       delete android/ and run expo prebuild
+ *   --debug       debug APK, no version bump, no publish
+ *   --no-bump     skip version bump
+ *   --no-publish  skip git commit/push
  */
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { bumpVersion, readVersions } = require('./lib/version');
+const { addRelease, updateReadme } = require('./lib/readme-releases');
+const {
+  androidDir,
+  gradlewName,
+  prepareAndroidProject,
+  stopGradle,
+} = require('./lib/android-project');
 
 const root = path.join(__dirname, '..');
-const androidDir = path.join(root, 'android');
+const releasesDir = path.join(root, 'releases');
 const isDebug = process.argv.includes('--debug');
-const variant = isDebug ? 'Debug' : 'Release';
+const skipBump = process.argv.includes('--no-bump');
+const skipPublish = process.argv.includes('--no-publish');
+const forceFresh = process.argv.includes('--fresh');
+const variant = isDebug ? 'debug' : 'release';
 const gradleTask = isDebug ? 'assembleDebug' : 'assembleRelease';
-const gradlew = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
+const gradlew = gradlewName();
 const apkRel = isDebug
   ? 'app/build/outputs/apk/debug/app-debug.apk'
   : 'app/build/outputs/apk/release/app-release.apk';
@@ -45,7 +61,6 @@ function ensureAndroidSdk() {
   }
 }
 
-/** Short Gradle cache path — avoids Windows MAX_PATH (260) errors. */
 function ensureGradleHome() {
   const gradleHome =
     process.platform === 'win32'
@@ -81,16 +96,52 @@ function patchGradleProperties() {
   console.log('Patched android/gradle.properties for Windows local builds');
 }
 
+function copyReleaseApk(apkPath, version, versionCode) {
+  fs.mkdirSync(releasesDir, { recursive: true });
+  const suffix = isDebug ? 'debug' : 'release';
+  const fileName = `shakes-pear-v${version}-${suffix}.apk`;
+  const destPath = path.join(releasesDir, fileName);
+  fs.copyFileSync(apkPath, destPath);
+
+  const { size } = fs.statSync(destPath);
+  const sizeMb = (size / (1024 * 1024)).toFixed(1);
+  const builtAt = new Date().toISOString();
+
+  const manifest = addRelease({
+    version,
+    versionCode,
+    variant: suffix,
+    fileName,
+    builtAt,
+    sizeMb,
+  });
+  updateReadme(manifest);
+
+  return { destPath, fileName, sizeMb };
+}
+
 ensureAndroidSdk();
 ensureGradleHome();
 
-console.log('Step 1/2 — expo prebuild (android)');
-run('npx expo prebuild --platform android --no-install');
+let versionInfo = readVersions();
+if (!isDebug && !skipBump) {
+  versionInfo = bumpVersion();
+  console.log(
+    `\nVersion bumped → ${versionInfo.version} (versionCode ${versionInfo.versionCode})\n`,
+  );
+} else {
+  console.log(
+    `\nBuilding version ${versionInfo.version} (versionCode ${versionInfo.versionCode})\n`,
+  );
+}
+
+console.log('Step 1/2 — prepare android project');
+prepareAndroidProject(versionInfo, { fresh: forceFresh });
 
 patchGradleProperties();
 
 console.log(`Step 2/2 — Gradle ${gradleTask}`);
-run(`${gradlew} --stop`, androidDir);
+stopGradle();
 run(`${gradlew} ${gradleTask}`, androidDir);
 
 const apkPath = path.join(androidDir, apkRel);
@@ -102,3 +153,19 @@ if (!fs.existsSync(apkPath)) {
 const { size } = fs.statSync(apkPath);
 const mb = (size / (1024 * 1024)).toFixed(1);
 console.log(`\n✓ ${variant} APK ready (${mb} MB):\n  ${apkPath}\n`);
+
+if (!isDebug) {
+  const published = copyReleaseApk(
+    apkPath,
+    versionInfo.version,
+    versionInfo.versionCode,
+  );
+  console.log(`✓ Copied to releases/${published.fileName}`);
+  console.log('✓ README APK table updated');
+
+  if (!skipPublish) {
+    run(`node scripts/publish-release.js ${versionInfo.version}`);
+  } else {
+    console.log('--no-publish — skipping git commit/push.');
+  }
+}
