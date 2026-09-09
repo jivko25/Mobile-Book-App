@@ -3,7 +3,7 @@
     "name": "Shakes Pear",
     "slug": "folio-audiobook",
     "owner": "jivko25",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -12,6 +12,7 @@
       "bundleIdentifier": "com.folio.audiobook"
     },
     "android": {
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#D4BC94"

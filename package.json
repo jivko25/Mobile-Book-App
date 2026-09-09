@@ -1,6 +1,6 @@
 {
   "name": "shakes-pear",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
@@ -14,8 +14,9 @@
     "build:android:cloud:preview": "eas build --platform android --profile preview",
     "build:android": "node scripts/build-android-apk.js",
     "build:android:local": "node scripts/build-android-apk.js",
-    "build:android:local:preview": "node scripts/build-android-apk.js",
+    "build:android:local:preview": "node scripts/build-android-apk.js --no-publish",
     "build:android:local:debug": "node scripts/build-android-apk.js --debug",
+    "release:publish": "node scripts/publish-release.js",
     "build:android:local:eas": "eas build --platform android --profile preview --local",
     "build:ios:cloud": "eas build --platform ios --profile production",
     "build:ios:cloud:preview": "eas build --platform ios --profile preview",
