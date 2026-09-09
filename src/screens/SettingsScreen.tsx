@@ -13,6 +13,7 @@ import {
   formatVoiceLanguageLabel,
   getNarrationVoices,
   loadSettings,
+  previewVoice,
   saveSettings,
   TtsVoiceOption,
 } from '../services/tts/voicePreferences';
@@ -27,7 +28,9 @@ export function SettingsScreen() {
   const [voiceId, setVoiceId] = useState<string | null>(null);
   const [voices, setVoices] = useState<TtsVoiceOption[]>([]);
   const [usingFallbackVoices, setUsingFallbackVoices] = useState(false);
+  const [recommendedVoiceId, setRecommendedVoiceId] = useState<string | null>(null);
   const [loadingVoices, setLoadingVoices] = useState(true);
+  const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null);
   const [sleep, setSleep] = useState(30);
 
   useEffect(() => {
@@ -37,9 +40,18 @@ export function SettingsScreen() {
         getNarrationVoices(),
       ]);
       setSpeed(settings.speed);
-      setVoiceId(settings.voiceId ?? narration.voices[0]?.id ?? null);
+      const defaultVoice =
+        settings.voiceId ??
+        narration.recommendedVoiceId ??
+        narration.voices[0]?.id ??
+        null;
+      setVoiceId(defaultVoice);
       setVoices(narration.voices);
       setUsingFallbackVoices(narration.usingFallback);
+      setRecommendedVoiceId(narration.recommendedVoiceId);
+      if (!settings.voiceId && defaultVoice) {
+        await saveSettings({ voiceId: defaultVoice });
+      }
       setLoadingVoices(false);
     };
     void init();
@@ -50,10 +62,16 @@ export function SettingsScreen() {
     await saveSettings({ speed: next });
   }, []);
 
-  const updateVoice = useCallback(async (id: string) => {
-    setVoiceId(id);
-    await saveSettings({ voiceId: id });
-    await speechPlayer.setVoice(id);
+  const updateVoice = useCallback(async (voice: TtsVoiceOption) => {
+    setVoiceId(voice.id);
+    setPreviewingVoiceId(voice.id);
+    await saveSettings({ voiceId: voice.id });
+    await speechPlayer.setVoice(voice.id);
+    try {
+      await previewVoice(voice.id, voice.language);
+    } finally {
+      setPreviewingVoiceId(null);
+    }
   }, []);
 
   return (
@@ -141,7 +159,8 @@ export function SettingsScreen() {
             </Text>
           ) : (
             <Text style={styles.voiceHint}>
-              Български системни гласове — препоръчваме Enhanced качество
+              За глас като Google Maps: изберете Google TTS с етикет „Google Maps“.
+              Инсталирайте от Настройки → Език → Текст в реч → Google TTS.
             </Text>
           )}
 
@@ -159,7 +178,7 @@ export function SettingsScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`Избери глас ${v.name}`}
                 accessibilityState={{ selected: voiceId === v.id }}
-                onPress={() => updateVoice(v.id)}
+                onPress={() => updateVoice(v)}
                 style={styles.voiceRow}
               >
                 <View style={styles.voiceInfo}>
@@ -167,9 +186,15 @@ export function SettingsScreen() {
                   <Text style={styles.voiceMeta}>
                     {formatVoiceLanguageLabel(v.language)}
                     {v.quality === 'Enhanced' ? ' · Enhanced' : ''}
+                    {v.googleMapsStyle ? ' · Google Maps' : ''}
+                    {v.id === recommendedVoiceId ? ' · Препоръчан' : ''}
                   </Text>
                 </View>
-                {voiceId === v.id && <Text style={styles.checkmark}>✓</Text>}
+                {previewingVoiceId === v.id ? (
+                  <ActivityIndicator color={colors.burgundy} size="small" />
+                ) : voiceId === v.id ? (
+                  <Text style={styles.checkmark}>✓</Text>
+                ) : null}
               </Pressable>
             ))
           )}
